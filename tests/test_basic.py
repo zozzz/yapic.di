@@ -1,26 +1,114 @@
-from zeno.di import Injector
+import pytest
+from zeno.di import Injector, ProvideError
 
 
-def test_xxx():
-    def fn(a, b, c, *, kwonly, kw2=2):
+def test_provide_callable():
+    """ Test only providable callables """
+    # !!! THIS IS NOT AN EXAMPLE, THIS IS A BAD USAGE, BUT IT CAN WORK IN TEST !!!
+    injector = Injector()
+
+    @injector.provide
+    def normalfn():
         pass
 
-    # test cases: 1-3 defaults
-    class X:
-        def __call__(self, fasz, v=1, y=2):
-            pass
+    @injector.provide
+    def fn_with_args(a1, a2, a3):
+        pass
 
-    class C:
+    @injector.provide
+    def fn_with_defs1(a1, a2=2):
+        pass
+
+    @injector.provide
+    def fn_with_defs2(a1, a2=2, a3=3):
+        pass
+
+    @injector.provide
+    def fn_with_defs3(a1, a2=2, a3=3, a4=4):
+        pass
+
+    @injector.provide
+    def fn_kwonly(*, kw1, kw2):
+        pass
+
+    @injector.provide
+    def fn_kwonly_def1(*, kw1, kw2=2):
+        pass
+
+    @injector.provide
+    def fn_kwonly_def2(*, kw1, kw2=2, kw3=3):
+        pass
+
+    @injector.provide
+    def fn_kwonly_def3(*, kw1, kw2=2, kw3=3, kw4=4):
+        pass
+
+    @injector.provide
+    def fn_mixed1(a1, *, kw1):
+        pass
+
+    @injector.provide
+    def fn_mixed2(a1=1, *, kw1):
+        pass
+
+    @injector.provide
+    def fn_mixed3(a1, *, kw1=1):
+        pass
+
+    @injector.provide
+    def fn_mixed4(a1=1, *, kw1=1):
+        pass
+
+    class X:
+        pass
+
+    class X2:
         def __init__(self):
             pass
 
-    injector = Injector()
-    print(injector)
-    injector.provide(fn)
-    injector.provide(X)
-    injector.provide(X())
-    injector.provide(C)
-    # injector.provide(Injector.provide) # WRONG
-    # injector.provide(injector.provide) # WRONG
+    class C:
+        def __call__(self, a1=1):
+            pass
 
-    assert 1 == 0
+    class CC:
+        @classmethod
+        def cls_method(cls, arg1):
+            pass
+
+        @staticmethod
+        def static_method(arg1):
+            pass
+
+    injector.provide(X)
+    injector.provide(X2)
+    injector.provide(C())
+    injector.provide(CC.cls_method)
+    injector.provide(CC.static_method)
+
+    with pytest.raises(ProvideError) as exc:
+        injector.provide(Injector.provide)
+    exc.match("^Cannot provide builtin / c-extension")
+
+    with pytest.raises(ProvideError) as exc:
+        injector.provide(injector.provide)
+    exc.match("^Cannot provide builtin / c-extension")
+
+
+def test_provide_attrs():
+    class A:
+        pass
+
+    class B:
+        a: A
+
+    class X:
+        pass
+
+    class C(B):
+        x: X
+
+    injector = Injector()
+    injector.provide(A)
+    injector.provide(B)
+    injector.provide(X)
+    injector.provide(C)

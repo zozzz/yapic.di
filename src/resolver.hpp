@@ -22,7 +22,12 @@ ValueResolver* ValueResolver::New(PyObject* name, PyObject* id, PyObject* defaul
 }
 
 
-PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector) {
+PyObject* ValueResolver::ResolveArgument(ValueResolver* self, Injector* injector) {
+	Py_RETURN_NONE;
+}
+
+
+PyObject* ValueResolver::ResolveAttribute(ValueResolver* self, Injector* injector) {
 	Py_RETURN_NONE;
 }
 
@@ -31,7 +36,7 @@ void ValueResolver::__dealloc__(ValueResolver* self) {
 	Py_CLEAR(self->name);
 	Py_CLEAR(self->id);
 	Py_CLEAR(self->default_value);
-	Py_TYPE(self)->tp_free((PyObject*) self);
+	Super::__dealloc__(self);
 }
 
 

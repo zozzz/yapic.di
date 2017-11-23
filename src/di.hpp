@@ -72,20 +72,29 @@ public:
 	static Provider* New(PyObject* value, Strategy strategy, PyObject* provide);
 	static Provider* New(PyObject* value, PyObject* strategy, PyObject* provide);
 	static PyObject* Resolve(Provider* self, Injector* injector);
-	static PyObject* Exec(Provider* self, Injector* injector);
+	// static PyObject* Exec(Provider* self, Injector* injector);
+	// egy injectort vár paraméternek, és így vissza tudja adni azt, amit kell
+	static PyObject* __call__(Provider* self, PyObject* args, PyObject** kwargs);
+	// visszaad egy bounded provider objektumot, aminek már nem kell megadni
+	// az injector objektumot, akkor ha meghívjuk
+	static PyObject* bind(Provider* self, Injector* injector);
+
+	Yapic_METHODS_BEGIN
+		Yapic_Method(bind, METH_O, "");
+	Yapic_METHODS_END
 };
 
 
-class ProviderExec: public Yapic::Type<ProviderExec, Yapic::Object> {
+class BoundProvider: public Yapic::Type<BoundProvider, Yapic::Object> {
 public:
 	Provider* provider;
 	Injector* injector;
 
 	Yapic_PrivateNew;
 
-	static ProviderExec* New(Provider* provider, Injector* injector);
-	static PyObject* __call__(ProviderExec* self, PyObject* args, PyObject** kwargs);
-	static void __dealloc__(ProviderExec* self);
+	static BoundProvider* New(Provider* provider, Injector* injector);
+	static PyObject* __call__(BoundProvider* self, PyObject* args, PyObject** kwargs);
+	static void __dealloc__(BoundProvider* self);
 };
 
 
@@ -99,7 +108,8 @@ public:
 	Yapic_PrivateNew;
 
 	static ValueResolver* New(PyObject* name, PyObject* id, PyObject* default_value);
-	static PyObject* Resolve(ValueResolver* self, Injector* injector);
+	static PyObject* ResolveArgument(ValueResolver* self, Injector* injector);
+	static PyObject* ResolveAttribute(ValueResolver* self, Injector* injector);
 	static void __dealloc__(ValueResolver* self);
 	static PyObject* __repr__(ValueResolver* self);
 };
@@ -137,8 +147,8 @@ public:
 		state->STR_INIT = "__init__";
 		state->STR_SELF = "__self__";
 
-		state->ExcBase.Define("zeno.di.InjectorError");
-		state->ExcProvideError.Define("zeno.di.ProvideError", state->ExcBase);
+		state->ExcBase.Define("InjectorError");
+		state->ExcProvideError.Define("ProvideError", state->ExcBase);
 
 		// init MethodWrapperType
 		PyObject* method = PyObject_GetAttrString(state->ExcBase, "__call__");
@@ -150,7 +160,7 @@ public:
 
 		Injector::Register(module);
 		Provider::Register(module);
-		ProviderExec::Register(module);
+		BoundProvider::Register(module);
 		ValueResolver::Register(module);
 
 		return 0;

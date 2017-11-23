@@ -75,28 +75,27 @@ PyObject* Injector::provide(Injector* self, PyObject* args, PyObject* kwargs) {
 	static char *kwlist[] = {"", "value", "strategy", "provide", NULL};
 
 	PyObject *id=NULL, *value=NULL, *strategy=NULL, *provide=NULL;
-	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOO", kwlist, &id, &value, &strategy, &provide)) {
-		return NULL;
-	}
-
-	if (value == NULL) {
-		if (strategy == NULL) {
-			strategy = value;
+	if (PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOO", kwlist, &id, &value, &strategy, &provide)) {
+		if (value == NULL) {
+			if (strategy == NULL) {
+				strategy = value;
+			}
+			value = id;
 		}
-		value = id;
-	}
 
-	value = (PyObject*) Provider::New(value, strategy, provide);
-	if (value == NULL) {
-		return NULL;
-	}
+		value = (PyObject*) Provider::New(value, strategy, provide);
+		if (value == NULL) {
+			return NULL;
+		}
 
-	if (PyDict_SetItem(self->scope, id, value) == -1) {
-		Py_DECREF(value);
-		return NULL;
-	}
+		if (PyDict_SetItem(self->scope, id, value) == -1) {
+			Py_DECREF(value);
+			return NULL;
+		}
 
-	return value;
+		return value;
+	}
+	return NULL;
 }
 
 PyObject* Injector::get(Injector* self, PyObject* id) {

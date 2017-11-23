@@ -6,7 +6,7 @@
 namespace ZenoDI {
 
 namespace _provider {
-	static inline PyObject* CreateValueResolver(PyObject* name, PyObject* annots, PyObject* defaultValue) {
+	static inline PyObject* NewValueResolver(PyObject* name, PyObject* annots, PyObject* defaultValue) {
 		assert(name != NULL && PyUnicode_Check(name));
 		assert(annots == NULL || PyDict_Check(annots));
 
@@ -68,7 +68,6 @@ namespace _provider {
 
 			static inline bool Arguments(Provider* provider, PyCodeObject* code,
 										 PyObject* defaults, PyObject* kwdefaults, PyObject* annots, int offset) {
-				printf("-------------------------\n");
 				PyObject* args = NULL;
 				PyObject* kwargs = NULL;
 				int argcount = code->co_argcount - offset;
@@ -90,7 +89,8 @@ namespace _provider {
 						PyObject* def = (defcount && code->co_argcount - defcount <= i
 							? PyTuple_GET_ITEM(defaults, defcounter++)
 							: NULL);
-						PyObject* resolver = CreateValueResolver(PyTuple_GET_ITEM(code->co_varnames, i), annots, def);
+						// TODO: ArgumentResolver
+						PyObject* resolver = NewValueResolver(PyTuple_GET_ITEM(code->co_varnames, i), annots, def);
 						if (resolver == NULL) {
 							goto error;
 						}
@@ -108,7 +108,8 @@ namespace _provider {
 						assert(PyTuple_GET_SIZE(code->co_varnames) > i);
 						PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i); // borrowed
 						PyObject* def = kwdefaults != NULL ? PyDict_GetItem(kwdefaults, name) : NULL; // borrowed
-						PyObject* resolver = CreateValueResolver(name, annots, def);
+						// TODO: ArgumentResolver
+						PyObject* resolver = NewValueResolver(name, annots, def);
 						if (resolver == NULL) {
 							goto error;
 						} else if (PyDict_SetItem(kwargs, name, resolver) == -1) {
@@ -185,7 +186,55 @@ namespace _provider {
 		} /* end namespace Callable */
 
 		static inline bool Attributes(Provider* provider, PyObject* type) {
+			PyObject* attributes = PyDict_New();
+			if (attributes == NULL) {
+				return false;
+			}
+
+			PyObject* mro = ((PyTypeObject*) type)->tp_mro;
+			assert(mro != NULL);
+			assert(PyTuple_CheckExact(mro));
+
+			PyObject* str_annots = Module::State()->STR_ANNOTATIONS;
+			for (int i=PyTuple_GET_SIZE(mro) - 1; i>=0; i--) {
+				PyObject* base = PyTuple_GET_ITEM(mro, i);
+				assert(base != NULL);
+
+				PyObject* annots = PyObject_GetAttr(base, str_annots);
+				if (annots == NULL) {
+					PyErr_Clear();
+					continue;
+				}
+
+				if (!PyDict_CheckExact(annots)) {
+					Py_DECREF(annots);
+					continue;
+				}
+
+				PyObject* key;
+				PyObject* value;
+				Py_ssize_t pos = 0;
+
+				while (PyDict_Next(annots, &pos, &key, &value)) {
+					// TODO: maybe default value???
+					PyObject* resolver = (PyObject*) ValueResolver::New(key, value, NULL);
+					int res = PyDict_SetItem(attributes, key, resolver);
+					Py_DECREF(resolver);
+
+					if (res == -1) {
+						Py_DECREF(annots);
+						goto error;
+					}
+				}
+
+				Py_DECREF(annots);
+			}
+
+			provider->attributes = attributes;
 			return true;
+			error:
+				Py_DECREF(attributes);
+				return false;
 		}
 	} /* end namespace Collect */
 
@@ -241,7 +290,7 @@ Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* 
 		self->value_type = Provider::ValueType::OTHER;
 	}
 
-	printf("args = %s\nkwargs = %s\n", ZenoDI_REPR(self->args), ZenoDI_REPR(self->kwargs));
+	printf("args = %s\nkwargs = %s\nattrs = %s\n", ZenoDI_REPR(self->args), ZenoDI_REPR(self->kwargs), ZenoDI_REPR(self->attributes));
 
 	if (provide != NULL) {
 		if (self->value_type == Provider::ValueType::OTHER) {
@@ -287,16 +336,16 @@ PyObject* Provider::Resolve(Provider* self, Injector* injector) {
 }
 
 
-PyObject* Provider::Exec(Provider* self, Injector* injector) {
+PyObject* Provider::__call__(Provider* self, PyObject* args, PyObject** kwargs) {
 	Py_RETURN_NONE;
 }
 
 
-ProviderExec* ProviderExec::New(Provider* provider, Injector* injector) {
+BoundProvider* BoundProvider::New(Provider* provider, Injector* injector) {
 	assert(Provider::CheckExact(provider));
 	assert(Injector::CheckExact(injector));
 
-	ProviderExec* self = ProviderExec::Alloc();
+	BoundProvider* self = BoundProvider::Alloc();
 
 	Py_INCREF(provider);
 	Py_INCREF(injector);
@@ -308,7 +357,7 @@ ProviderExec* ProviderExec::New(Provider* provider, Injector* injector) {
 }
 
 
-PyObject* ProviderExec::__call__(ProviderExec* self, PyObject* args, PyObject** kwargs) {
+PyObject* BoundProvider::__call__(BoundProvider* self, PyObject* args, PyObject** kwargs) {
 	//TODO: ha vannak paraméterek, akkor hiba
 	assert(Provider::CheckExact(self->provider));
 	assert(Injector::CheckExact(self->injector));
@@ -317,7 +366,7 @@ PyObject* ProviderExec::__call__(ProviderExec* self, PyObject* args, PyObject** 
 }
 
 
-void ProviderExec::__dealloc__(ProviderExec* self) {
+void BoundProvider::__dealloc__(BoundProvider* self) {
 	Py_XDECREF(self->provider);
 	Py_XDECREF(self->injector);
 	Py_TYPE(self)->tp_free((PyObject*) self);
