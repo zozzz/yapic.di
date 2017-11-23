@@ -1,0 +1,9 @@
+#ifndef BBF4C6D8_A133_C8FC_1285_ADC240274FF5
+#define BBF4C6D8_A133_C8FC_1285_ADC240274FF5
+
+#define ZenoDI_Err_GotBuiltinCallable "Cannot provide builtin / c-extension %R."
+#define ZenoDI_Err_GotProvideForValue "Cannot provide injectables for simple value."
+#define ZenoDI_Err_GotInvalidStrategy "The 'strategy' param must be 'int' or 'callable' got: %R."
+#define ZenoDI_Err_GotInvalidStrategyInt "The 'strategy' param value is not a valid strategy constant: %R."
+
+#endif /* BBF4C6D8_A133_C8FC_1285_ADC240274FF5 */

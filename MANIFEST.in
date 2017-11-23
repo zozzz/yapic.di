@@ -1,0 +1,2 @@
+include src/di.pyi
+include src/*.hpp
