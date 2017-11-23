@@ -1,7 +1,7 @@
 #ifndef AC1E491D_0133_C8FB_12AA_F65E6B95E8A0
 #define AC1E491D_0133_C8FB_12AA_F65E6B95E8A0
 
-#include "./module.hpp"
+#include "./di.hpp"
 
 namespace ZenoDI {
 
@@ -33,19 +33,19 @@ namespace _provider {
 			static inline PyObject* GetCallable(PyObject* callable, PyCodeObject** code) {
 				assert(*code == NULL);
 
-				*code = (PyCodeObject*) PyObject_GetAttr(callable, ModuleState::Get()->str__code__);
+				*code = (PyCodeObject*) PyObject_GetAttr(callable, Module::State()->STR_CODE);
 				if (*code == NULL) {
 					PyErr_Clear();
 					/**
 					 * class X:
 					 *     def __call__(self): pass
 					 */
-					PyObject* __call__ = PyObject_GetAttr(callable, ModuleState::Get()->str__call__);
+					PyObject* __call__ = PyObject_GetAttr(callable, Module::State()->STR_CALL);
 					if (__call__ != NULL) {
 						PyObject* res = NULL;
-						if (PyObject_IsInstance(__call__, ModuleState::Get()->MethodWrapperType)) {
+						if (PyObject_IsInstance(__call__, Module::State()->MethodWrapperType)) {
 							// got builtin or any other unsupported callable object
-							PyErr_Format(ModuleState::Get()->ExcProvideError, ZenoDI_Err_GotBuiltinCallable, callable);
+							PyErr_Format(Module::State()->ExcProvideError, ZenoDI_Err_GotBuiltinCallable, callable);
 						} else {
 							res = GetCallable(__call__, code);
 						}
@@ -62,7 +62,7 @@ namespace _provider {
 					return callable;
 				}
 				// got builtin or any other unsupported callable object
-				PyErr_Format(ModuleState::Get()->ExcProvideError, ZenoDI_Err_GotBuiltinCallable, callable);
+				PyErr_Format(Module::State()->ExcProvideError, ZenoDI_Err_GotBuiltinCallable, callable);
 				return NULL;
 			}
 
@@ -141,7 +141,7 @@ namespace _provider {
 				}
 
 				// def defaults(arg1=1)
-				PyObject* defaults = PyObject_GetAttr(callable, ModuleState::Get()->str__defaults__);
+				PyObject* defaults = PyObject_GetAttr(callable, Module::State()->STR_DEFAULTS);
 				if (defaults == NULL) {
 					PyErr_Clear();
 				} else if (defaults == Py_None) {
@@ -153,20 +153,20 @@ namespace _provider {
 				// def kwonly(*, kw1, kw2=2)
 				PyObject* kwdefaults = NULL;
 				if (code->co_kwonlyargcount) {
-					kwdefaults = PyObject_GetAttr(callable, ModuleState::Get()->str__kwdefaults__);
+					kwdefaults = PyObject_GetAttr(callable, Module::State()->STR_KWDEFAULTS);
 					if (kwdefaults == NULL) {
 						PyErr_Clear();
 					}
 				}
 
 				// def fn(arg1: SomeType)
-				PyObject* annots = PyObject_GetAttr(callable, ModuleState::Get()->str__annotations__);
+				PyObject* annots = PyObject_GetAttr(callable, Module::State()->STR_ANNOTATIONS);
 				if (annots == NULL) {
 					PyErr_Clear();
 				}
 
 				if (!offset) {
-					PyObject* cself = PyObject_GetAttr(callable, ModuleState::Get()->str__self__);
+					PyObject* cself = PyObject_GetAttr(callable, Module::State()->STR_SELF);
 					if (cself == NULL) {
 						PyErr_Clear();
 					} else {
@@ -216,7 +216,7 @@ Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* 
 				return NULL;
 			}
 
-			PyObject* init = PyObject_GetAttr(value, ModuleState::Get()->str__init__);
+			PyObject* init = PyObject_GetAttr(value, Module::State()->STR_INIT);
 			if (init == NULL) {
 				return NULL;
 			}
@@ -225,7 +225,7 @@ Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* 
 			Py_DECREF(init);
 			// __init__ is optional
 			if (!result) {
-				if (PyErr_ExceptionMatches(ModuleState::Get()->ExcProvideError)) {
+				if (PyErr_ExceptionMatches(Module::State()->ExcProvideError)) {
 					PyErr_Clear();
 				} else {
 					return NULL;
@@ -241,11 +241,11 @@ Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* 
 		self->value_type = Provider::ValueType::OTHER;
 	}
 
-	printf("args = %s\nkwargs = %s\n", ZenoDI_REPR(self->args), ZenoDI_REPR(self->kwargs), ZenoDI_REPR(provide));
+	printf("args = %s\nkwargs = %s\n", ZenoDI_REPR(self->args), ZenoDI_REPR(self->kwargs));
 
 	if (provide != NULL) {
 		if (self->value_type == Provider::ValueType::OTHER) {
-			PyErr_SetString(ModuleState::Get()->ExcProvideError, ZenoDI_Err_GotProvideForValue);
+			PyErr_SetString(Module::State()->ExcProvideError, ZenoDI_Err_GotProvideForValue);
 			return NULL;
 		} else {
 			self->own_scope = _provider::CreateOwnScope(provide);
@@ -258,12 +258,13 @@ Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* 
 	return self;
 }
 
+
 Provider* Provider::New(PyObject* value, PyObject* strategy, PyObject* provide) {
 	Provider::Strategy strat = Provider::Strategy::FACTORY;
 	if (strategy != NULL) {
 		if (!PyLong_Check(strategy)) {
 			if (!PyCallable_Check(strategy)) {
-				PyErr_Format(ModuleState::Get()->ExcProvideError, ZenoDI_Err_GotInvalidStrategy, strategy);
+				PyErr_Format(Module::State()->ExcProvideError, ZenoDI_Err_GotInvalidStrategy, strategy);
 				return NULL;
 			} else {
 				strat = Provider::Strategy::CUSTOM | Provider::Strategy::FACTORY;
@@ -271,7 +272,7 @@ Provider* Provider::New(PyObject* value, PyObject* strategy, PyObject* provide) 
 		} else {
 			strat = (Provider::Strategy) PyLong_AS_LONG(strategy);
 			if (!(strat & Provider::Strategy::ALL)) {
-				PyErr_Format(ModuleState::Get()->ExcProvideError, ZenoDI_Err_GotInvalidStrategyInt, strategy);
+				PyErr_Format(Module::State()->ExcProvideError, ZenoDI_Err_GotInvalidStrategyInt, strategy);
 				return NULL;
 			}
 		}
@@ -280,64 +281,18 @@ Provider* Provider::New(PyObject* value, PyObject* strategy, PyObject* provide) 
 	return Provider::New(value, strat, provide);
 }
 
+
 PyObject* Provider::Resolve(Provider* self, Injector* injector) {
 	Py_RETURN_NONE;
 }
+
 
 PyObject* Provider::Exec(Provider* self, Injector* injector) {
 	Py_RETURN_NONE;
 }
 
 
-ZenoDI_PrivateNew(Provider)
-
-
-PyTypeObject ZenoDI_TypeVar(Provider) = {
-	PyVarObject_HEAD_INIT(NULL, 0)
-	/* tp_name */ 			"zeno.di.Provider",
-	/* tp_basicsize */ 		sizeof(Provider),
-	/* tp_itemsize */ 		0,
-	/* tp_dealloc */ 		0,
-	/* tp_print */ 			0,
-	/* tp_getattr */ 		0,
-	/* tp_setattr */ 		0,
-	/* tp_as_async */ 		0,
-	/* tp_repr */ 			0,
-	/* tp_as_number */ 		0,
-	/* tp_as_sequence */ 	0,
-	/* tp_as_mapping */ 	0,
-	/* tp_hash  */ 			0,
-	/* tp_call */ 			0,
-	/* tp_str */ 			0,
-	/* tp_getattro */ 		0,
-	/* tp_setattro */ 		0,
-	/* tp_as_buffer */ 		0,
-	/* tp_flags */ 			Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-	/* tp_doc */ 			0,
-	/* tp_traverse */ 		0,
-	/* tp_clear */ 			0,
-	/* tp_richcompare */ 	0,
-	/* tp_weaklistoffset */ 0,
-	/* tp_iter */ 			0,
-	/* tp_iternext */ 		0,
-	/* tp_methods */ 		0,
-	/* tp_members */ 		0,
-	/* tp_getset */ 		0,
-	/* tp_base */ 			0,
-	/* tp_dict */ 			0,
-	/* tp_descr_get */ 		0,
-	/* tp_descr_set */ 		0,
-	/* tp_dictoffset */ 	0,
-	/* tp_init */ 			0,
-	/* tp_alloc */ 			0,
-	/* tp_new */ 			Provider_new,
-	/* tp_free */ 			0
-};
-
-
-ZenoDI_PrivateNew(ProviderExec)
-
-ProviderExec* New(Provider* provider, Injector* injector) {
+ProviderExec* ProviderExec::New(Provider* provider, Injector* injector) {
 	assert(Provider::CheckExact(provider));
 	assert(Injector::CheckExact(injector));
 
@@ -352,7 +307,8 @@ ProviderExec* New(Provider* provider, Injector* injector) {
 	return self;
 }
 
-static PyObject* ProviderExec_call(ProviderExec* self, PyObject* args, PyObject** kwargs) {
+
+PyObject* ProviderExec::__call__(ProviderExec* self, PyObject* args, PyObject** kwargs) {
 	//TODO: ha vannak paraméterek, akkor hiba
 	assert(Provider::CheckExact(self->provider));
 	assert(Injector::CheckExact(self->injector));
@@ -360,54 +316,12 @@ static PyObject* ProviderExec_call(ProviderExec* self, PyObject* args, PyObject*
 	return Provider::Exec(self->provider, self->injector);
 }
 
-static void ProviderExec_dealloc(ProviderExec* self) {
+
+void ProviderExec::__dealloc__(ProviderExec* self) {
 	Py_XDECREF(self->provider);
 	Py_XDECREF(self->injector);
 	Py_TYPE(self)->tp_free((PyObject*) self);
 }
-
-
-PyTypeObject ZenoDI_TypeVar(ProviderExec) = {
-	PyVarObject_HEAD_INIT(NULL, 0)
-	/* tp_name */ 			"zeno.di.ProviderExec",
-	/* tp_basicsize */ 		sizeof(ProviderExec),
-	/* tp_itemsize */ 		0,
-	/* tp_dealloc */ 		(destructor) ProviderExec_dealloc,
-	/* tp_print */ 			0,
-	/* tp_getattr */ 		0,
-	/* tp_setattr */ 		0,
-	/* tp_as_async */ 		0,
-	/* tp_repr */ 			0,
-	/* tp_as_number */ 		0,
-	/* tp_as_sequence */ 	0,
-	/* tp_as_mapping */ 	0,
-	/* tp_hash  */ 			0,
-	/* tp_call */ 			(ternaryfunc) ProviderExec_call,
-	/* tp_str */ 			0,
-	/* tp_getattro */ 		0,
-	/* tp_setattro */ 		0,
-	/* tp_as_buffer */ 		0,
-	/* tp_flags */ 			Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-	/* tp_doc */ 			0,
-	/* tp_traverse */ 		0,
-	/* tp_clear */ 			0,
-	/* tp_richcompare */ 	0,
-	/* tp_weaklistoffset */ 0,
-	/* tp_iter */ 			0,
-	/* tp_iternext */ 		0,
-	/* tp_methods */ 		0,
-	/* tp_members */ 		0,
-	/* tp_getset */ 		0,
-	/* tp_base */ 			0,
-	/* tp_dict */ 			0,
-	/* tp_descr_get */ 		0,
-	/* tp_descr_set */ 		0,
-	/* tp_dictoffset */ 	0,
-	/* tp_init */ 			0,
-	/* tp_alloc */ 			0,
-	/* tp_new */ 			ProviderExec_new,
-	/* tp_free */ 			0
-};
 
 
 } // end namespace ZenoDI

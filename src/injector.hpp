@@ -1,10 +1,9 @@
 #ifndef C1001E15_5133_C8FB_12A8_B6171D1397F3
 #define C1001E15_5133_C8FB_12A8_B6171D1397F3
 
-#include "./module.hpp"
+#include "./di.hpp"
 
 namespace ZenoDI {
-
 
 Injector* Injector::New(Injector* parent, PyObject* scope) {
 	Injector* self = Injector::Alloc();
@@ -48,7 +47,7 @@ PyObject* Injector::Find(Injector* injector, PyObject* id) {
 }
 
 
-static PyObject* Injector_new(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
+PyObject* Injector::__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
 	Injector* self = (Injector*) type->tp_alloc(type, 0);
 	if (self == NULL) {
 		return NULL;
@@ -66,14 +65,13 @@ static PyObject* Injector_new(PyTypeObject *type, PyObject *args, PyObject *kwar
 }
 
 
-static void Injector_dealloc(Injector* self) {
+void Injector::__dealloc__(Injector* self) {
 	Py_XDECREF(self->scope);
 	Py_XDECREF(self->parent);
 	Py_TYPE(self)->tp_free((PyObject*) self);
 }
 
-PyDoc_STRVAR(Injector_provide_doc, "");
-static PyObject* Injector_provide(Injector* self, PyObject* args, PyObject* kwargs) {
+PyObject* Injector::provide(Injector* self, PyObject* args, PyObject* kwargs) {
 	static char *kwlist[] = {"", "value", "strategy", "provide", NULL};
 
 	PyObject *id=NULL, *value=NULL, *strategy=NULL, *provide=NULL;
@@ -101,8 +99,7 @@ static PyObject* Injector_provide(Injector* self, PyObject* args, PyObject* kwar
 	return value;
 }
 
-PyDoc_STRVAR(Injector_get_doc, "");
-static PyObject* Injector_get(Injector* self, PyObject* id) {
+PyObject* Injector::get(Injector* self, PyObject* id) {
 	PyObject* provider = PyDict_GetItem(self->scope, id);
 	if (provider == NULL) {
 		return NULL;
@@ -111,74 +108,19 @@ static PyObject* Injector_get(Injector* self, PyObject* id) {
 	return provider;
 }
 
-PyDoc_STRVAR(Injector_exec_doc, "");
-static PyObject* Injector_exec(Injector* self, PyObject* args, PyObject* kwargs) {
+PyObject* Injector::exec(Injector* self, PyObject* args, PyObject* kwargs) {
 	static char *kwlist[] = {"callable", "provide", NULL};
 	return NULL;
 }
 
-PyDoc_STRVAR(Injector_injectable_doc, "");
-static PyObject* Injector_injectable(Injector* self, PyObject* args, PyObject* kwargs) {
+PyObject* Injector::injectable(Injector* self, PyObject* args, PyObject* kwargs) {
 	static char *kwlist[] = {"value", "strategy", "provide", NULL};
 	return NULL;
 }
 
-PyDoc_STRVAR(Injector_descend_doc, "");
-static PyObject* Injector_descend(Injector* self) {
+PyObject* Injector::descend(Injector* self) {
 	return NULL;
 }
-
-static PyMethodDef Injector_methods[] = {
-	{"provide", (PyCFunction) Injector_provide, METH_VARARGS | METH_KEYWORDS, Injector_provide_doc},
-	{"get", (PyCFunction) Injector_get, METH_O, Injector_get_doc},
-	{"exec", (PyCFunction) Injector_exec, METH_VARARGS | METH_KEYWORDS, Injector_exec_doc},
-	{"injectable", (PyCFunction) Injector_injectable, METH_VARARGS | METH_KEYWORDS, Injector_injectable_doc},
-	{"descend", (PyCFunction) Injector_descend, METH_NOARGS, Injector_descend_doc},
-	NULL
-};
-
-
-PyTypeObject ZenoDI_TypeVar(Injector) = {
-	PyVarObject_HEAD_INIT(NULL, 0)
-	/* tp_name */ 			"zeno.di.Injector",
-	/* tp_basicsize */ 		sizeof(Injector),
-	/* tp_itemsize */ 		0,
-	/* tp_dealloc */ 		(destructor) Injector_dealloc,
-	/* tp_print */ 			0,
-	/* tp_getattr */ 		0,
-	/* tp_setattr */ 		0,
-	/* tp_as_async */ 		0,
-	/* tp_repr */ 			0,
-	/* tp_as_number */ 		0,
-	/* tp_as_sequence */ 	0,
-	/* tp_as_mapping */ 	0,
-	/* tp_hash  */ 			0,
-	/* tp_call */ 			0,
-	/* tp_str */ 			0,
-	/* tp_getattro */ 		0,
-	/* tp_setattro */ 		0,
-	/* tp_as_buffer */ 		0,
-	/* tp_flags */ 			Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-	/* tp_doc */ 			0,
-	/* tp_traverse */ 		0,
-	/* tp_clear */ 			0,
-	/* tp_richcompare */ 	0,
-	/* tp_weaklistoffset */ 0,
-	/* tp_iter */ 			0,
-	/* tp_iternext */ 		0,
-	/* tp_methods */ 		Injector_methods,
-	/* tp_members */ 		0,
-	/* tp_getset */ 		0,
-	/* tp_base */ 			0,
-	/* tp_dict */ 			0,
-	/* tp_descr_get */ 		0,
-	/* tp_descr_set */ 		0,
-	/* tp_dictoffset */ 	0,
-	/* tp_init */ 			0,
-	/* tp_alloc */ 			0,
-	/* tp_new */ 			Injector_new,
-	/* tp_free */ 			0
-};
 
 } // end namespace ZenoDI
 
