@@ -337,7 +337,18 @@ PyObject* Provider::Resolve(Provider* self, Injector* injector) {
 
 
 PyObject* Provider::__call__(Provider* self, PyObject* args, PyObject** kwargs) {
+	// return Provider::Resolve(...)
 	Py_RETURN_NONE;
+}
+
+void Provider::__dealloc__(Provider* self) {
+	Py_CLEAR(self->value);
+	Py_CLEAR(self->args);
+	Py_CLEAR(self->kwargs);
+	Py_CLEAR(self->attributes);
+	Py_CLEAR(self->own_scope);
+	Py_CLEAR(self->custom_strategy);
+	Super::__dealloc__(self);
 }
 
 PyObject* Provider::bind(Provider* self, Injector* injector) {
@@ -374,7 +385,7 @@ PyObject* BoundProvider::__call__(BoundProvider* self, PyObject* args, PyObject*
 void BoundProvider::__dealloc__(BoundProvider* self) {
 	Py_XDECREF(self->provider);
 	Py_XDECREF(self->injector);
-	Py_TYPE(self)->tp_free((PyObject*) self);
+	Super::__dealloc__(self);
 }
 
 

@@ -75,6 +75,7 @@ public:
 	// static PyObject* Exec(Provider* self, Injector* injector);
 	// egy injectort vár paraméternek, és így vissza tudja adni azt, amit kell
 	static PyObject* __call__(Provider* self, PyObject* args, PyObject** kwargs);
+	static void __dealloc__(Provider* self);
 	// visszaad egy bounded provider objektumot, aminek már nem kell megadni
 	// az injector objektumot, akkor ha meghívjuk
 	static PyObject* bind(Provider* self, Injector* injector);

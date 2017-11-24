@@ -68,7 +68,7 @@ PyObject* Injector::__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs
 void Injector::__dealloc__(Injector* self) {
 	Py_XDECREF(self->scope);
 	Py_XDECREF(self->parent);
-	Py_TYPE(self)->tp_free((PyObject*) self);
+	Super::__dealloc__(self);
 }
 
 PyObject* Injector::provide(Injector* self, PyObject* args, PyObject* kwargs) {
