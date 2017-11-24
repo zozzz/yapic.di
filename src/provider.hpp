@@ -340,12 +340,17 @@ PyObject* Provider::__call__(Provider* self, PyObject* args, PyObject** kwargs) 
 	Py_RETURN_NONE;
 }
 
+PyObject* Provider::bind(Provider* self, Injector* injector) {
+	return (PyObject*) BoundProvider::New(self, injector);
+}
+
 
 BoundProvider* BoundProvider::New(Provider* provider, Injector* injector) {
 	assert(Provider::CheckExact(provider));
 	assert(Injector::CheckExact(injector));
 
 	BoundProvider* self = BoundProvider::Alloc();
+	if (self == NULL) { return NULL; }
 
 	Py_INCREF(provider);
 	Py_INCREF(injector);
@@ -362,7 +367,7 @@ PyObject* BoundProvider::__call__(BoundProvider* self, PyObject* args, PyObject*
 	assert(Provider::CheckExact(self->provider));
 	assert(Injector::CheckExact(self->injector));
 
-	return Provider::Exec(self->provider, self->injector);
+	return Provider::Resolve(self->provider, self->injector);
 }
 
 

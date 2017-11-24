@@ -80,7 +80,7 @@ public:
 	static PyObject* bind(Provider* self, Injector* injector);
 
 	Yapic_METHODS_BEGIN
-		Yapic_Method(bind, METH_O, "");
+		Yapic_Method(bind, METH_O, "")
 	Yapic_METHODS_END
 };
 
