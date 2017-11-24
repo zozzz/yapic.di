@@ -52,7 +52,7 @@ def test_provide_callable():
         pass
 
     @injector.provide
-    def fn_mixed3(a1, *, kw1=1):
+    def fn_mixed3(a1, *, kw4=4):
         pass
 
     @injector.provide

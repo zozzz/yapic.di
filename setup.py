@@ -26,6 +26,7 @@ if sys.platform == "win32":
         define_macros["_DEBUG"] = 1
         undef_macros.append("NDEBUG")
         extra_compile_args.append("/MTd")
+        extra_compile_args.append("/Zi")
     else:
         extra_compile_args.append("-Ox")
 

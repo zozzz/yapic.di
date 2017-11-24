@@ -30,27 +30,23 @@ namespace _provider {
 		 * 			+ has __code__
 		 */
 		namespace Callable {
-			static inline PyObject* GetCallable(PyObject* callable, PyCodeObject** code) {
-				assert(*code == NULL);
-
-				*code = (PyCodeObject*) PyObject_GetAttr(callable, Module::State()->STR_CODE);
-				if (*code == NULL) {
+			static inline PyObject* GetCallable(PyObject* callable, PyPtr<PyCodeObject>& code) {
+				code = PyObject_GetAttr(callable, Module::State()->STR_CODE);
+				if (code.IsNull()) {
 					PyErr_Clear();
 					/**
 					 * class X:
 					 *     def __call__(self): pass
 					 */
-					PyObject* __call__ = PyObject_GetAttr(callable, Module::State()->STR_CALL);
-					if (__call__ != NULL) {
-						PyObject* res = NULL;
+					PyPtr<> __call__ = PyObject_GetAttr(callable, Module::State()->STR_CALL);
+					if (__call__.IsValid()) {
 						if (PyObject_IsInstance(__call__, Module::State()->MethodWrapperType)) {
 							// got builtin or any other unsupported callable object
 							PyErr_Format(Module::State()->ExcProvideError, ZenoDI_Err_GotBuiltinCallable, callable);
+							return NULL;
 						} else {
-							res = GetCallable(__call__, code);
+							return GetCallable(__call__, code);
 						}
-						Py_DECREF(__call__);
-						return res;
 					}
 				} else if (PyCallable_Check(callable)) {
 					/**
@@ -75,8 +71,8 @@ namespace _provider {
 				if (argcount) {
 					assert(PyTuple_CheckExact(code->co_varnames));
 
-					Local args = PyTuple_New(argcount);
-					if (args.isNull()) {
+					PyPtr<> args = PyTuple_New(argcount);
+					if (args.IsNull()) {
 						return false;
 					}
 
@@ -99,8 +95,8 @@ namespace _provider {
 				}
 
 				if (code->co_kwonlyargcount) {
-					Local kwargs = PyDict_New();
-					if (kwargs.isNull()) {
+					PyPtr<> kwargs = PyDict_New();
+					if (kwargs.IsNull()) {
 						return false;
 					}
 
@@ -109,8 +105,8 @@ namespace _provider {
 						PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i); // borrowed
 						PyObject* def = kwdefaults != NULL ? PyDict_GetItem(kwdefaults, name) : NULL; // borrowed
 						// TODO: ArgumentResolver
-						Local resolver = NewValueResolver(name, annots, def);
-						if (resolver.isNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
+						PyPtr<> resolver = NewValueResolver(name, annots, def);
+						if (resolver.IsNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
 							return false;
 						}
 					}
@@ -122,62 +118,56 @@ namespace _provider {
 			}
 
 			static inline bool Arguments(Provider* provider, PyObject* obj, int offset) {
-				PyCodeObject* code = NULL;
-				PyObject* callable = GetCallable(obj, &code);
+				PyPtr<PyCodeObject> code = NULL;
+				PyPtr<> callable = GetCallable(obj, code);
 				// printf("Real Callable %s\n", ZenoDI_REPR(callable));
 
-				if (callable == NULL) {
-					Py_XDECREF(code);
+				if (callable.IsNull()) {
 					return false;
 				}
 
 				// def defaults(arg1=1)
-				PyObject* defaults = PyObject_GetAttr(callable, Module::State()->STR_DEFAULTS);
-				if (defaults == NULL) {
+				PyPtr<> defaults = PyObject_GetAttr(callable, Module::State()->STR_DEFAULTS);
+				if (defaults.IsNull()) {
 					PyErr_Clear();
 				} else if (defaults == Py_None) {
-					Py_CLEAR(defaults);
+					defaults.Clear();
 				} else {
 					assert(PyTuple_CheckExact(defaults));
 				}
 
 				// def kwonly(*, kw1, kw2=2)
-				PyObject* kwdefaults = NULL;
+				PyPtr<> kwdefaults = NULL;
 				if (code->co_kwonlyargcount) {
 					kwdefaults = PyObject_GetAttr(callable, Module::State()->STR_KWDEFAULTS);
-					if (kwdefaults == NULL) {
+					if (kwdefaults.IsNull()) {
 						PyErr_Clear();
 					}
 				}
 
 				// def fn(arg1: SomeType)
-				PyObject* annots = PyObject_GetAttr(callable, Module::State()->STR_ANNOTATIONS);
-				if (annots == NULL) {
+				PyPtr<> annots = PyObject_GetAttr(callable, Module::State()->STR_ANNOTATIONS);
+				ZenoDI_DUMP(annots);
+				if (annots.IsNull()) {
 					PyErr_Clear();
 				}
 
 				if (!offset) {
-					PyObject* cself = PyObject_GetAttr(callable, Module::State()->STR_SELF);
-					if (cself == NULL) {
+					PyPtr<> cself = PyObject_GetAttr(callable, Module::State()->STR_SELF);
+					if (cself.IsNull()) {
 						PyErr_Clear();
 					} else {
 						offset = 1;
-						Py_DECREF(cself);
 					}
 				}
 
-				bool res = Arguments(provider, code, defaults, kwdefaults, annots, offset);
-				Py_DECREF(code);
-				Py_XDECREF(defaults);
-				Py_XDECREF(kwdefaults);
-				Py_XDECREF(annots);
-				return res;
+				return Arguments(provider, code, defaults, kwdefaults, annots, offset);
 			}
 		} /* end namespace Callable */
 
 		static inline bool Attributes(Provider* provider, PyObject* type) {
-			PyObject* attributes = PyDict_New();
-			if (attributes == NULL) {
+			PyPtr<> attributes = PyDict_New();
+			if (attributes.IsNull()) {
 				return false;
 			}
 
@@ -190,16 +180,12 @@ namespace _provider {
 				PyObject* base = PyTuple_GET_ITEM(mro, i);
 				assert(base != NULL);
 
-				PyObject* annots = PyObject_GetAttr(base, str_annots);
-				if (annots == NULL) {
+				PyPtr<> annots = PyObject_GetAttr(base, str_annots);
+				if (annots.IsNull()) {
 					PyErr_Clear();
 					continue;
 				}
-
-				if (!PyDict_CheckExact(annots)) {
-					Py_DECREF(annots);
-					continue;
-				}
+				assert(PyDict_CheckExact(annots));
 
 				PyObject* key;
 				PyObject* value;
@@ -207,24 +193,15 @@ namespace _provider {
 
 				while (PyDict_Next(annots, &pos, &key, &value)) {
 					// TODO: maybe default value???
-					PyObject* resolver = (PyObject*) ValueResolver::New(key, value, NULL);
-					int res = PyDict_SetItem(attributes, key, resolver);
-					Py_DECREF(resolver);
-
-					if (res == -1) {
-						Py_DECREF(annots);
-						goto error;
+					PyPtr<> resolver = (PyObject*) ValueResolver::New(key, value, NULL);
+					if (PyDict_SetItem(attributes, key, resolver) == -1) {
+						return false;
 					}
 				}
-
-				Py_DECREF(annots);
 			}
 
-			provider->attributes = attributes;
+			provider->attributes = attributes.Steal();
 			return true;
-			error:
-				Py_DECREF(attributes);
-				return false;
 		}
 	} /* end namespace Collect */
 
@@ -236,8 +213,8 @@ namespace _provider {
 
 
 Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* provide) {
-	Provider* self = Provider::Alloc();
-	if (self == NULL) {
+	PyPtr<Provider> self = Provider::Alloc();
+	if (self.IsNull()) {
 		return NULL;
 	}
 
@@ -255,15 +232,13 @@ Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* 
 				return NULL;
 			}
 
-			PyObject* init = PyObject_GetAttr(value, Module::State()->STR_INIT);
-			if (init == NULL) {
+			PyPtr<> init = PyObject_GetAttr(value, Module::State()->STR_INIT);
+			if (init.IsNull()) {
 				return NULL;
 			}
 
-			bool result = _provider::Collect::Callable::Arguments(self, init, 1);
-			Py_DECREF(init);
 			// __init__ is optional
-			if (!result) {
+			if (!_provider::Collect::Callable::Arguments(self, init, 1)) {
 				if (PyErr_ExceptionMatches(Module::State()->ExcProvideError)) {
 					PyErr_Clear();
 				} else {
@@ -294,7 +269,8 @@ Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* 
 		}
 	}
 
-	return self;
+
+	return self.Steal();
 }
 
 

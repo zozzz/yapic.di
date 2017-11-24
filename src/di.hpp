@@ -1,20 +1,23 @@
 #ifndef AB77B960_F133_C8FB_1370_B184655AB464
 #define AB77B960_F133_C8FB_1370_B184655AB464
 
+// USE ONLY FOR DEBUGGING
+#define ZenoDI_REPR(o) (((PyObject*)o) == NULL ? "<NULL>" : ((char*) PyUnicode_DATA(PyObject_Repr(((PyObject*)o)))))
+#define ZenoDI_DUMP(o) printf(#o " = %s\n", ZenoDI_REPR(o))
+
 #include <stdbool.h>
 #include <Python.h>
 #include <yapic/module.hpp>
 #include <yapic/type.hpp>
-#include <yapic/local.hpp>
+#include <yapic/pyptr.hpp>
 
 #include "./errors.hpp"
 
-// USE ONLY FOR DEBUGGING
-#define ZenoDI_REPR(o) (o == NULL ? "<NULL>" : ((char*) PyUnicode_DATA(PyObject_Repr(o))))
-#define ZenoDI_DUMP(o) printf(#o " = %s\n", ZenoDI_REPR(o))
+
 
 namespace ZenoDI {
-using Local = Yapic::Local;
+
+using Yapic::PyPtr;
 
 class Injector: public Yapic::Type<Injector, Yapic::Object> {
 public:

@@ -107,3 +107,4 @@ venv.bak/
 __src
 playground
 *.asm
+*.pdb
