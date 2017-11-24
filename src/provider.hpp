@@ -68,18 +68,17 @@ namespace _provider {
 
 			static inline bool Arguments(Provider* provider, PyCodeObject* code,
 										 PyObject* defaults, PyObject* kwdefaults, PyObject* annots, int offset) {
-				PyObject* args = NULL;
-				PyObject* kwargs = NULL;
+
 				int argcount = code->co_argcount - offset;
 				assert(argcount >= 0);
 
-				args = PyTuple_New(argcount);
-				if (args == NULL) {
-					goto error;
-				}
-
 				if (argcount) {
 					assert(PyTuple_CheckExact(code->co_varnames));
+
+					Local args = PyTuple_New(argcount);
+					if (args.isNull()) {
+						return false;
+					}
 
 					int defcount = (defaults == NULL ? 0 : (int) PyTuple_GET_SIZE(defaults));
 					int defcounter = 0;
@@ -89,19 +88,20 @@ namespace _provider {
 						PyObject* def = (defcount && code->co_argcount - defcount <= i
 							? PyTuple_GET_ITEM(defaults, defcounter++)
 							: NULL);
-						// TODO: ArgumentResolver
 						PyObject* resolver = NewValueResolver(PyTuple_GET_ITEM(code->co_varnames, i), annots, def);
 						if (resolver == NULL) {
-							goto error;
+							return false;
 						}
 						PyTuple_SET_ITEM(args, i - offset, resolver);
 					}
+
+					provider->args = args.Steal();
 				}
 
 				if (code->co_kwonlyargcount) {
-					kwargs = PyDict_New();
-					if (kwargs == NULL) {
-						goto error;
+					Local kwargs = PyDict_New();
+					if (kwargs.isNull()) {
+						return false;
 					}
 
 					for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
@@ -109,26 +109,16 @@ namespace _provider {
 						PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i); // borrowed
 						PyObject* def = kwdefaults != NULL ? PyDict_GetItem(kwdefaults, name) : NULL; // borrowed
 						// TODO: ArgumentResolver
-						PyObject* resolver = NewValueResolver(name, annots, def);
-						if (resolver == NULL) {
-							goto error;
-						} else if (PyDict_SetItem(kwargs, name, resolver) == -1) {
-							Py_DECREF(resolver);
-							goto error;
-						} else {
-							Py_DECREF(resolver);
+						Local resolver = NewValueResolver(name, annots, def);
+						if (resolver.isNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
+							return false;
 						}
 					}
+
+					provider->kwargs = kwargs.Steal();
 				}
 
-				provider->args = args;
-				provider->kwargs = kwargs;
-
 				return true;
-				error:
-					Py_XDECREF(args);
-					Py_XDECREF(kwargs);
-					return false;
 			}
 
 			static inline bool Arguments(Provider* provider, PyObject* obj, int offset) {
@@ -196,7 +186,7 @@ namespace _provider {
 			assert(PyTuple_CheckExact(mro));
 
 			PyObject* str_annots = Module::State()->STR_ANNOTATIONS;
-			for (int i=PyTuple_GET_SIZE(mro) - 1; i>=0; i--) {
+			for (Py_ssize_t i=PyTuple_GET_SIZE(mro) - 1; i>=0; i--) {
 				PyObject* base = PyTuple_GET_ITEM(mro, i);
 				assert(base != NULL);
 

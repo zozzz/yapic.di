@@ -28,6 +28,8 @@ if sys.platform == "win32":
         extra_compile_args.append("/MTd")
     else:
         extra_compile_args.append("-Ox")
+
+    extra_compile_args.append("/FAs")
 else:
     extra_compile_args.append("-std=c++11")
 

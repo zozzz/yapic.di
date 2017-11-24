@@ -5,6 +5,7 @@
 #include <Python.h>
 #include <yapic/module.hpp>
 #include <yapic/type.hpp>
+#include <yapic/local.hpp>
 
 #include "./errors.hpp"
 
@@ -13,6 +14,7 @@
 #define ZenoDI_DUMP(o) printf(#o " = %s\n", ZenoDI_REPR(o))
 
 namespace ZenoDI {
+using Local = Yapic::Local;
 
 class Injector: public Yapic::Type<Injector, Yapic::Object> {
 public:
