@@ -5,22 +5,32 @@
 
 namespace ZenoDI {
 
+Injector* Injector::New(Injector* parent) {
+	PyObject* scope = PyDict_New();
+	if (scope == NULL) {
+		return NULL;
+	}
+	return Injector::New(parent, scope);
+}
+
+
 Injector* Injector::New(Injector* parent, PyObject* scope) {
-	Injector* self = Injector::Alloc();
-	if (self == NULL) {
+	PyPtr<Injector> self = Injector::Alloc();
+	if (self.IsNull()) {
 		return NULL;
 	}
 
-	assert(Injector::Check((PyObject*) parent));
-	assert(PyDict_Check(scope));
+	if (parent != NULL) {
+		assert(Injector::CheckExact(parent));
+		Py_INCREF(parent);
+		self->parent = parent;
+	}
 
-	Py_INCREF(parent);
-	Py_INCREF(scope);
-
-	self->parent = parent;
+	assert(scope != NULL);
+	assert(PyDict_CheckExact(scope));
 	self->scope = scope;
 
-	return self;
+	return self.Steal();
 }
 
 
@@ -32,10 +42,7 @@ PyObject* Injector::Find(Injector* injector, PyObject* id) {
 		if (result == NULL) {
 			injector = injector->parent;
 			if (injector == NULL) {
-				// TODO: custom error, move up PyErr_Clear
 				return NULL;
-			} else {
-				PyErr_Clear(); // catch error
 			}
 		} else {
 			Py_INCREF(result);
@@ -46,27 +53,77 @@ PyObject* Injector::Find(Injector* injector, PyObject* id) {
 	return NULL;
 }
 
+PyObject* Injector::Provide(Injector* self, PyObject* id) {
+	return Injector::Provide(self, id, id, Module::State()->FACTORY, NULL);
+}
+
+
+PyObject* Injector::Provide(Injector* self, PyObject* id, PyObject* value, PyObject* strategy, PyObject* provide) {
+	if (value == NULL) {
+		if (strategy == NULL) {
+			strategy = value;
+		}
+		value = id;
+	}
+
+	if (KwOnly::CheckExact(value)) {
+		if (!self->kwargs) {
+			self->kwargs = PyList_New(1);
+			if (self->kwargs == NULL) {
+				return NULL;
+			}
+			Py_INCREF(value);
+			PyList_SET_ITEM(self->kwargs, 0, value);
+		} else if (PyList_Append(self->kwargs, value) == -1) {
+			return NULL;
+		}
+
+		Py_RETURN_NONE;
+	}
+
+	value = (PyObject*) Provider::New(value, strategy, provide);
+	if (value == NULL) {
+		return NULL;
+	}
+
+	if (PyDict_SetItem(self->scope, id, value) == -1) {
+		Py_DECREF(value);
+		return NULL;
+	}
+
+	return value;
+}
+
+void Injector::SetParent(Injector* self, Injector* parent) {
+	if (self->parent != NULL) {
+		Py_DECREF(self->parent);
+	}
+	if (parent != NULL) {
+		Py_INCREF(parent);
+	}
+	self->parent = parent;
+}
+
 
 PyObject* Injector::__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
-	Injector* self = (Injector*) type->tp_alloc(type, 0);
-	if (self == NULL) {
-		return NULL;
+	static char *kwlist[] = {"parent", NULL};
+
+	Injector* parent = NULL;
+	if (PyArg_ParseTupleAndKeywords(args, kwargs, "|O", kwlist, &parent)) {
+		if (parent != NULL && !Injector::CheckExact(parent)) {
+			PyErr_SetString(PyExc_TypeError, "Argument must be 'Injector' instance.");
+			return NULL;
+		}
+		return (PyObject*) Injector::New(parent);
 	}
 
-	self->parent = NULL;
-
-	self->scope = PyDict_New();
-	if (self->scope == NULL) {
-		Py_DECREF(self);
-		return NULL;
-	}
-
-	return (PyObject*) self;
+	return NULL;
 }
 
 
 void Injector::__dealloc__(Injector* self) {
 	Py_XDECREF(self->scope);
+	Py_XDECREF(self->kwargs);
 	Py_XDECREF(self->parent);
 	Super::__dealloc__(self);
 }
@@ -76,49 +133,49 @@ PyObject* Injector::provide(Injector* self, PyObject* args, PyObject* kwargs) {
 
 	PyObject *id=NULL, *value=NULL, *strategy=NULL, *provide=NULL;
 	if (PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOO", kwlist, &id, &value, &strategy, &provide)) {
-		if (value == NULL) {
-			if (strategy == NULL) {
-				strategy = value;
-			}
-			value = id;
-		}
-
-		value = (PyObject*) Provider::New(value, strategy, provide);
-		if (value == NULL) {
-			return NULL;
-		}
-
-		if (PyDict_SetItem(self->scope, id, value) == -1) {
-			Py_DECREF(value);
-			return NULL;
-		}
-
-		return value;
+		return Injector::Provide(self, id, value, strategy, provide);
 	}
 	return NULL;
 }
 
 PyObject* Injector::get(Injector* self, PyObject* id) {
-	PyObject* provider = PyDict_GetItem(self->scope, id);
+	PyObject* provider = Injector::Find(self, id);
 	if (provider == NULL) {
+		PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_ProviderNotFound, id);
 		return NULL;
 	}
-	Py_INCREF(provider);
-	return provider;
+	assert(Provider::CheckExact(provider));
+	return Provider::Resolve((Provider*) provider, self);
 }
 
+// TODO: doksiba leírni, hogy ez nem cachel, és ha sűrűn kell meghívni,
+// akkor inkább az Injector.provide(...) és az Injector.get(id) kombót javasolt használni
 PyObject* Injector::exec(Injector* self, PyObject* args, PyObject* kwargs) {
 	static char *kwlist[] = {"callable", "provide", NULL};
+
+	PyObject* callable;
+	PyObject* provide = NULL;
+
+	if (PyArg_ParseTupleAndKeywords(args, kwargs, "O|O:exec", kwlist, &callable, &provide)) {
+		Provider* provider = Provider::New(callable, Provider::Strategy::FACTORY, provide);
+		if (provider == NULL) {
+			return NULL;
+		}
+		return Provider::Resolve(provider, self);
+	}
+
 	return NULL;
 }
 
+// vissztér egy olyan azonosítóval, ami használható azonsítóként
+// hasznos akkor ha egy sima függvényt akarunk injctálni saját providerekkel
 PyObject* Injector::injectable(Injector* self, PyObject* args, PyObject* kwargs) {
 	static char *kwlist[] = {"value", "strategy", "provide", NULL};
 	return NULL;
 }
 
 PyObject* Injector::descend(Injector* self) {
-	return NULL;
+	return (PyObject*) Injector::New(self);
 }
 
 } // end namespace ZenoDI

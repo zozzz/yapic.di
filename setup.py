@@ -87,7 +87,7 @@ class PyTest(TestCommand):
     def initialize_options(self):
         super().initialize_options()
         self.pytest_args = "-x -s"
-        self.file = None
+        self.file = "./tests/"
 
     def finalize_options(self):
         super().finalize_options()

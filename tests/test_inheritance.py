@@ -1,16 +1,34 @@
 import pytest
-from zeno.di.injector import Injector
+from zeno.di import Injector, VALUE
 
 
-# def test_scope_set_get_det():
-#     s = Scope()
-#     s["hello"] = 1
-#     assert s["hello"] == 1
+def test_injector_descend():
+    injector = Injector()
+    injector.provide("X", "XValue", VALUE)
+    subi = injector.descend()
+    assert subi.get("X") == "XValue"
 
-#     del s["hello"]
 
-#     with pytest.raises(KeyError):
-#         x = s["hello"]
+def test_custom_provide():
+    injector = Injector()
+
+    class A:
+        pass
+
+    class X(A):
+        pass
+
+    def fn(a: A):
+        assert isinstance(a, X)
+        return "OK"
+
+    injector.provide(A)
+    injector.provide(fn, provide=[
+        (A, X)
+    ])
+
+    assert injector.get(fn) == "OK"
+
 
 
 # def test_scope_inheritance():

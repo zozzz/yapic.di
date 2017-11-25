@@ -4,6 +4,7 @@
 #include "./injector.hpp"
 #include "./provider.hpp"
 #include "./resolver.hpp"
+#include "./kwonly.hpp"
 
 namespace ZenoDI {
 

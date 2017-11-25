@@ -126,6 +126,8 @@ namespace _provider {
 					return false;
 				}
 
+				// TODO: Refactor use PyFunctionObject* instead of getting attributes
+
 				// def defaults(arg1=1)
 				PyPtr<> defaults = PyObject_GetAttr(callable, Module::State()->STR_DEFAULTS);
 				if (defaults.IsNull()) {
@@ -147,7 +149,6 @@ namespace _provider {
 
 				// def fn(arg1: SomeType)
 				PyPtr<> annots = PyObject_GetAttr(callable, Module::State()->STR_ANNOTATIONS);
-				ZenoDI_DUMP(annots);
 				if (annots.IsNull()) {
 					PyErr_Clear();
 				}
@@ -205,8 +206,156 @@ namespace _provider {
 		}
 	} /* end namespace Collect */
 
+	template<bool IsList>
+	static inline bool InitOwnScope(Injector* injector, PyObject* provide) {
+		Py_ssize_t len = (IsList ? PyList_GET_SIZE(provide) : PyTuple_GET_SIZE(provide));
+		for (Py_ssize_t i=0; i<len ; i++) {
+			PyObject* item = (IsList ? PyList_GET_ITEM(provide, i) : PyTuple_GET_ITEM(provide, i));
+			assert(item != NULL);
+
+			PyObject* provided;
+			if (!PyTuple_CheckExact(item)) {
+				provided = Injector::Provide(injector, item);
+			} else {
+				PyObject* id = NULL;
+				PyObject* value = NULL;
+				PyObject* strategy = NULL;
+				PyObject* provide = NULL;
+				if (PyArg_UnpackTuple(item, "provide", 1, 4, &id, &value, &strategy, &provide)) {
+					provided = Injector::Provide(injector, id, value, strategy, provide);
+				} else {
+					return false;
+				}
+			}
+			if (provided == NULL) {
+				return false;
+			} else {
+				Py_DECREF(provided);
+			}
+		}
+		return true;
+	}
+
 	static inline PyObject* CreateOwnScope(PyObject* provide) {
-		Py_RETURN_NONE;
+		PyPtr<Injector> injector = Injector::New(NULL);
+		if (injector.IsNull()) {
+			return NULL;
+		}
+
+		if (PyList_CheckExact(provide)) {
+			if (!InitOwnScope<true>(injector, provide)) {
+				return NULL;
+			}
+		} else if (PyTuple_CheckExact(provide)) {
+			if (!InitOwnScope<false>(injector, provide)) {
+				return NULL;
+			}
+		} else {
+			PyErr_SetString(Module::State()->ExcProvideError, ZenoDI_Err_ProvideArgMustIterable);
+			return NULL;
+		}
+
+		PyObject* scope = injector->scope;
+		Py_INCREF(scope);
+		return scope;
+	}
+
+	template<bool UseKwOnly>
+	static inline PyObject* Factory(Provider* provider, Injector* injector) {
+		PyPtr<> args = PyTuple_New((provider->args ? PyTuple_GET_SIZE(provider->args) : 0));
+		if (args.IsNull()) {
+			return NULL;
+		}
+
+		for (Py_ssize_t i = 0 ; i<PyTuple_GET_SIZE(args) ; i++) {
+			ValueResolver* resolver = (ValueResolver*) PyTuple_GET_ITEM(provider->args, i);
+			assert(ValueResolver::CheckExact(resolver));
+
+			PyObject* arg = ValueResolver::Resolve<false>(resolver, injector);
+			if (arg == NULL) {
+				return NULL;
+			}
+			PyTuple_SET_ITEM(args, i, arg);
+		}
+
+		PyPtr<> kwargs = NULL;
+		if (provider->kwargs) {
+			kwargs = PyDict_New();
+			if (kwargs.IsNull()) {
+				return NULL;
+			}
+
+			PyObject* key;
+			PyObject* value;
+			Py_ssize_t pos = 0;
+
+			while (PyDict_Next(provider->kwargs, &pos, &key, &value)) {
+				PyObject* arg = ValueResolver::Resolve<true && UseKwOnly>((ValueResolver*) value, injector);
+				if (arg == NULL) {
+					return NULL;
+				}
+				if (PyDict_SetItem(kwargs, key, arg) == -1) {
+					return NULL;
+				}
+			}
+		}
+
+		assert(provider->value != NULL);
+
+		if (provider->value_type == Provider::ValueType::CLASS) {
+			PyPtr<> __new__ = PyObject_GetAttr(provider->value, Module::State()->STR_NEW);
+			if (__new__.IsNull()) {
+				return NULL;
+			}
+
+			PyPtr<> newArgs = PyTuple_New(PyTuple_GET_SIZE(args) + 1);
+			if (newArgs.IsNull()) {
+				return NULL;
+			}
+
+			Py_INCREF(provider->value);
+			PyTuple_SET_ITEM(newArgs, 0, provider->value);
+			for (Py_ssize_t i = 0 ; i<PyTuple_GET_SIZE(args) ; i++) {
+				PyObject* a = PyTuple_GET_ITEM(args, i);
+				Py_INCREF(a);
+				PyTuple_SET_ITEM(newArgs, i+1, a);
+			}
+
+			PyPtr<> obj = PyObject_Call(__new__, newArgs, kwargs);
+			if (obj.IsNull()) {
+				return NULL;
+			}
+
+			if (provider->attributes) {
+				PyObject* key;
+				PyObject* value;
+				Py_ssize_t pos = 0;
+
+				while (PyDict_Next(provider->attributes, &pos, &key, &value)) {
+					PyObject* attr = ValueResolver::Resolve<false>((ValueResolver*) value, injector);
+					if (attr == NULL) {
+						return NULL;
+					}
+					if (PyObject_SetAttr(obj, key, attr) == -1) {
+						return NULL;
+					}
+				}
+			}
+
+			PyPtr<> __init__ = PyObject_GetAttr(obj, Module::State()->STR_INIT);
+			if (__init__.IsNull()) {
+				return NULL;
+			}
+			if (PyObject_Call(__init__, args, kwargs) == NULL) {
+				return NULL;
+			}
+			return obj.Steal();
+		} else if (provider->value_type == Provider::ValueType::FUNCTION) {
+			return PyObject_Call(provider->value, args, kwargs);
+		} else {
+			PyErr_BadInternalCall();
+			return NULL;
+		}
 	}
 
 } // end namespace _provider
@@ -224,6 +373,8 @@ Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* 
 	self->kwargs = NULL;
 	self->attributes = NULL;
 	self->own_scope = NULL;
+	self->custom_strategy = NULL;
+	self->strategy = strategy;
 
 	if (strategy & Provider::Strategy::FACTORY) {
 		if (PyType_Check(value)) {
@@ -255,10 +406,8 @@ Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* 
 		self->value_type = Provider::ValueType::OTHER;
 	}
 
-	printf("args = %s\nkwargs = %s\nattrs = %s\n", ZenoDI_REPR(self->args), ZenoDI_REPR(self->kwargs), ZenoDI_REPR(self->attributes));
-
 	if (provide != NULL) {
-		if (self->value_type == Provider::ValueType::OTHER) {
+		if (self->value_type == Provider::ValueType::OTHER || (self->strategy & Strategy::VALUE)) {
 			PyErr_SetString(Module::State()->ExcProvideError, ZenoDI_Err_GotProvideForValue);
 			return NULL;
 		} else {
@@ -268,7 +417,6 @@ Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* 
 			}
 		}
 	}
-
 
 	return self.Steal();
 }
@@ -283,6 +431,13 @@ Provider* Provider::New(PyObject* value, PyObject* strategy, PyObject* provide) 
 				return NULL;
 			} else {
 				strat = Provider::Strategy::CUSTOM | Provider::Strategy::FACTORY;
+				Provider* provider = Provider::New(value, strat, provide);
+				if (provider == NULL) {
+					return NULL;
+				}
+				Py_INCREF(strategy);
+				provider->custom_strategy = strategy;
+				return provider;
 			}
 		} else {
 			strat = (Provider::Strategy) PyLong_AS_LONG(strategy);
@@ -298,13 +453,54 @@ Provider* Provider::New(PyObject* value, PyObject* strategy, PyObject* provide) 
 
 
 PyObject* Provider::Resolve(Provider* self, Injector* injector) {
-	Py_RETURN_NONE;
+	if (self->strategy & Strategy::VALUE) {
+		Py_INCREF(self->value);
+		return self->value;
+	} else if (self->strategy & Strategy::FACTORY) {
+		if (self->strategy & Strategy::SINGLETON) {
+			if (self->strategy & Strategy::GLOBAL) {
+				// lock begin
+				// Module::State()->globals[self] ?= instance
+				// lock end
+			} else {
+				// injector->scope[self] ?= instance
+			}
+		} else if (self->strategy & Strategy::CUSTOM) {
+			assert(self->custom_strategy != NULL);
+			PyPtr<ProviderFactory> factory = ProviderFactory::New(self, injector);
+			if (factory.IsNull()) {
+				return NULL;
+			}
+			return PyObject_CallFunctionObjArgs(self->custom_strategy, factory);
+		} else {
+			if (self->own_scope) {
+				Injector* scope = Injector::New(injector, self->own_scope);
+				if (scope == NULL) {
+					return NULL;
+				}
+				return _provider::Factory<true>(self, scope);
+			} else {
+				return _provider::Factory<true>(self, injector);
+			}
+		}
+	} else {
+		PyErr_BadInternalCall();
+		return NULL;
+	}
 }
 
 
 PyObject* Provider::__call__(Provider* self, PyObject* args, PyObject** kwargs) {
-	// return Provider::Resolve(...)
-	Py_RETURN_NONE;
+	PyObject* injector;
+	if (PyArg_UnpackTuple(args, "__call__", 1, 1, &injector)) {
+		if (Injector::CheckExact(injector)) {
+			return Provider::Resolve(self, (Injector*) injector);
+		} else {
+			PyErr_BadArgument();
+			return NULL;
+		}
+	}
+	return NULL;
 }
 
 void Provider::__dealloc__(Provider* self) {
@@ -318,7 +514,12 @@ void Provider::__dealloc__(Provider* self) {
 }
 
 PyObject* Provider::bind(Provider* self, Injector* injector) {
-	return (PyObject*) BoundProvider::New(self, injector);
+	if (Injector::CheckExact(injector)) {
+		return (PyObject*) BoundProvider::New(self, injector);
+	} else {
+		PyErr_BadArgument();
+		return NULL;
+	}
 }
 
 
@@ -328,6 +529,9 @@ BoundProvider* BoundProvider::New(Provider* provider, Injector* injector) {
 
 	BoundProvider* self = BoundProvider::Alloc();
 	if (self == NULL) { return NULL; }
+
+	assert(Provider::CheckExact(provider));
+	assert(Injector::CheckExact(injector));
 
 	Py_INCREF(provider);
 	Py_INCREF(injector);
@@ -341,14 +545,54 @@ BoundProvider* BoundProvider::New(Provider* provider, Injector* injector) {
 
 PyObject* BoundProvider::__call__(BoundProvider* self, PyObject* args, PyObject** kwargs) {
 	//TODO: ha vannak paraméterek, akkor hiba
-	assert(Provider::CheckExact(self->provider));
-	assert(Injector::CheckExact(self->injector));
-
 	return Provider::Resolve(self->provider, self->injector);
 }
 
 
 void BoundProvider::__dealloc__(BoundProvider* self) {
+	Py_XDECREF(self->provider);
+	Py_XDECREF(self->injector);
+	Super::__dealloc__(self);
+}
+
+
+ProviderFactory* ProviderFactory::New(Provider* provider, Injector* injector) {
+	assert(Provider::CheckExact(provider));
+	assert(Injector::CheckExact(injector));
+
+	ProviderFactory* self = ProviderFactory::Alloc();
+	if (self == NULL) { return NULL; }
+
+	assert(Provider::CheckExact(provider));
+	assert(Injector::CheckExact(injector));
+
+	Py_INCREF(provider);
+	Py_INCREF(injector);
+
+	self->provider = provider;
+	self->injector = injector;
+
+	return self;
+}
+
+
+PyObject* ProviderFactory::__call__(ProviderFactory* self, PyObject* args, PyObject** kwargs) {
+	//TODO: ha vannak paraméterek, akkor hiba
+
+	if (self->provider->own_scope) {
+		PyPtr<Injector> injector = Injector::New(self->injector, self->provider->own_scope);
+		if (injector.IsNull()) {
+			return NULL;
+		}
+		return _provider::Factory<true>(self->provider, injector);
+	} else {
+		return _provider::Factory<true>(self->provider, self->injector);
+	}
+
+}
+
+
+void ProviderFactory::__dealloc__(ProviderFactory* self) {
 	Py_XDECREF(self->provider);
 	Py_XDECREF(self->injector);
 	Super::__dealloc__(self);

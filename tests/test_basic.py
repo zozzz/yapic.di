@@ -1,5 +1,5 @@
 import pytest
-from zeno.di import Injector, ProvideError
+from zeno.di import Injector, ProvideError, InjectError
 
 
 def test_provide_callable():
@@ -112,3 +112,8 @@ def test_provide_attrs():
     injector.provide(B)
     injector.provide(X)
     injector.provide(C)
+
+
+def test_errors():
+    assert isinstance(ProvideError(), TypeError)
+    assert isinstance(InjectError(), TypeError)

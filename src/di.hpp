@@ -13,8 +13,6 @@
 
 #include "./errors.hpp"
 
-
-
 namespace ZenoDI {
 
 using Yapic::PyPtr;
@@ -22,10 +20,15 @@ using Yapic::PyPtr;
 class Injector: public Yapic::Type<Injector, Yapic::Object> {
 public:
 	PyObject* scope;
+	PyObject* kwargs;
 	Injector* parent;
 
+	static Injector* New(Injector* parent);
 	static Injector* New(Injector* parent, PyObject* scope);
 	static PyObject* Find(Injector* injector, PyObject* id);
+	static PyObject* Provide(Injector* injector, PyObject* id);
+	static PyObject* Provide(Injector* injector, PyObject* id, PyObject* value, PyObject* strategy, PyObject* provide);
+	static void SetParent(Injector* injector, Injector* parent);
 
 	static PyObject* __new__(PyTypeObject *type, PyObject *args, PyObject *kwargs);
 	static void __dealloc__(Injector* self);
@@ -66,7 +69,7 @@ public:
 	PyObject* args; 		// tuple[ValueResolver]
 	PyObject* kwargs;		// dict[str, ValueResolver]
 	PyObject* attributes;	// dict[str, ValueResolver]
-	PyObject* own_scope;
+	PyObject* own_scope;	// dict[id, ...]
 	PyObject* custom_strategy;
 
 	ValueType value_type;
@@ -104,20 +107,49 @@ public:
 };
 
 
+class ProviderFactory: public Yapic::Type<ProviderFactory, Yapic::Object> {
+public:
+	Provider* provider;
+	Injector* injector;
+
+	Yapic_PrivateNew;
+
+	static ProviderFactory* New(Provider* provider, Injector* injector);
+	static PyObject* __call__(ProviderFactory* self, PyObject* args, PyObject** kwargs);
+	static void __dealloc__(ProviderFactory* self);
+};
+
+
 class ValueResolver: public Yapic::Type<ValueResolver, Yapic::Object> {
 public:
 	PyObject* id;
 	PyObject* name;
 	PyObject* default_value;
-	// NameResolver* name_resolver;
 
 	Yapic_PrivateNew;
 
 	static ValueResolver* New(PyObject* name, PyObject* id, PyObject* default_value);
-	static PyObject* ResolveArgument(ValueResolver* self, Injector* injector);
-	static PyObject* ResolveAttribute(ValueResolver* self, Injector* injector);
+	template<bool UseKwOnly>
+	static PyObject* Resolve(ValueResolver* self, Injector* injector);
+	static void SetId(ValueResolver* self, PyObject* id);
+	static void SetName(ValueResolver* self, PyObject* name);
+	static void SetDefaultValue(ValueResolver* self, PyObject* value);
 	static void __dealloc__(ValueResolver* self);
 	static PyObject* __repr__(ValueResolver* self);
+};
+
+
+class KwOnly: public Yapic::Type<KwOnly, Yapic::Object> {
+public:
+	Provider* getter;
+	ValueResolver* name_resolver;
+	ValueResolver* type_resolver;
+
+	static KwOnly* New(PyObject* getter);
+	static PyObject* Resolve(KwOnly* self, Injector* injector, PyObject* name, PyObject* type);
+	static PyObject* __new__(PyTypeObject *type, PyObject *args, PyObject *kwargs);
+	static void __dealloc__(KwOnly* self);
+	static PyObject* __repr__(KwOnly* self);
 };
 
 
@@ -136,10 +168,20 @@ public:
 	ModuleVar STR_QUALNAME;
 	ModuleVar STR_CALL;
 	ModuleVar STR_INIT;
+	ModuleVar STR_NEW;
 	ModuleVar STR_SELF;
+	ModuleVar STR_KWA_NAME;
+	ModuleVar STR_KWA_TYPE;
+
+	ModuleVar FACTORY;
+	ModuleVar VALUE;
+	ModuleVar GLOBAL;
+	ModuleVar SINGLETON;
 
 	ModuleExc ExcBase;
 	ModuleExc ExcProvideError;
+	ModuleExc ExcInjectError;
+	ModuleExc ExcNoKwOnly;
 
 	PyObject* MethodWrapperType;
 
@@ -151,10 +193,27 @@ public:
 		state->STR_QUALNAME = "__qualname__";
 		state->STR_CALL = "__call__";
 		state->STR_INIT = "__init__";
+		state->STR_NEW = "__new__";
 		state->STR_SELF = "__self__";
+		state->STR_KWA_NAME = "name";
+		state->STR_KWA_TYPE = "type";
 
-		state->ExcBase.Define("InjectorError");
+		state->VALUE.Value(Provider::Strategy::VALUE).Export("VALUE");
+		state->FACTORY.Value(Provider::Strategy::FACTORY).Export("FACTORY");
+		state->SINGLETON.Value(
+			Provider::Strategy::SINGLETON |
+			Provider::Strategy::FACTORY
+		).Export("SINGLETON");
+		state->GLOBAL.Value(
+			Provider::Strategy::GLOBAL |
+			Provider::Strategy::SINGLETON |
+			Provider::Strategy::FACTORY
+		).Export("GLOBAL");
+
+		state->ExcBase.Define("InjectorError", PyExc_TypeError);
 		state->ExcProvideError.Define("ProvideError", state->ExcBase);
+		state->ExcInjectError.Define("InjectError", state->ExcBase);
+		state->ExcNoKwOnly.Define("NoKwOnly", state->ExcProvideError);
 
 		// init MethodWrapperType
 		PyObject* method = PyObject_GetAttrString(state->ExcBase, "__call__");
@@ -168,6 +227,7 @@ public:
 		Provider::Register(module);
 		BoundProvider::Register(module);
 		ValueResolver::Register(module);
+		KwOnly::Register(module);
 
 		return 0;
 	}

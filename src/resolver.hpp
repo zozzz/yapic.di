@@ -2,6 +2,42 @@
 #define E59C6756_5133_C8FB_12AD_80BD2DE30129
 
 namespace ZenoDI {
+	namespace _resolver {
+		static inline PyObject* ResolveByType(Injector* injector, PyObject* type) {
+			Provider* provider = (Provider*) Injector::Find(injector, type);
+			if (provider == NULL) {
+				return NULL;
+			} else if (Provider::CheckExact(provider)) {
+				return Provider::Resolve(provider, injector);
+			} else {
+				return NULL;
+			}
+		}
+
+		static inline PyObject* ResolveByKw(Injector* injector, PyObject* name, PyObject* type) {
+			assert(Injector::CheckExact(injector));
+
+			do {
+				if (injector->kwargs) {
+					assert(PyList_CheckExact(injector->kwargs));
+					PyObject* kwargs = injector->kwargs;
+
+					for (Py_ssize_t i=0 ; i < PyList_GET_SIZE(kwargs); i++) {
+						KwOnly* kw = (KwOnly*) PyList_GET_ITEM(kwargs, i);
+						assert(KwOnly::CheckExact(kw));
+						PyObject* val = KwOnly::Resolve(kw, injector, name, type);
+						if (val != NULL) {
+							return val;
+						} else if (PyErr_Occurred()) {
+							return NULL;
+						}
+					}
+				}
+			} while (injector = injector->parent);
+
+			return NULL;
+		}
+	} /* end namespace _resolver */
 
 
 ValueResolver* ValueResolver::New(PyObject* name, PyObject* id, PyObject* default_value) {
@@ -22,13 +58,71 @@ ValueResolver* ValueResolver::New(PyObject* name, PyObject* id, PyObject* defaul
 }
 
 
-PyObject* ValueResolver::ResolveArgument(ValueResolver* self, Injector* injector) {
-	Py_RETURN_NONE;
+template<bool UseKwOnly>
+PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector) {
+	// TODO: unpack type, handle Optional[...]
+	PyObject* type = self->id;
+
+	if (UseKwOnly) {
+		if (self->name) {
+			PyObject* byKw = _resolver::ResolveByKw(injector, self->name, type);
+			if (byKw != NULL) {
+				return byKw;
+			} else if (PyErr_Occurred()) {
+				return NULL;
+			}
+		}
+	}
+
+	if (type) {
+		PyObject* byType = _resolver::ResolveByType(injector, type);
+		if (byType != NULL) {
+			return byType;
+		} else if (PyErr_Occurred()) {
+			return NULL;
+		}
+	}
+
+	if (self->default_value) {
+		Py_INCREF(self->default_value);
+		return self->default_value;
+	}
+
+	PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_ProviderNotFound, self);
+	return NULL;
 }
 
 
-PyObject* ValueResolver::ResolveAttribute(ValueResolver* self, Injector* injector) {
-	Py_RETURN_NONE;
+void ValueResolver::SetId(ValueResolver* self, PyObject* id) {
+	if (self->id != NULL) {
+		Py_DECREF(self->id);
+	}
+	if (id != NULL) {
+		Py_INCREF(id);
+	}
+	self->id = id;
+}
+
+
+void ValueResolver::SetName(ValueResolver* self, PyObject* name) {
+	if (self->name != NULL) {
+		Py_DECREF(self->name);
+	}
+	if (name != NULL) {
+		Py_INCREF(name);
+	}
+	self->name = name;
+}
+
+
+void ValueResolver::SetDefaultValue(ValueResolver* self, PyObject* value) {
+	if (self->default_value != NULL) {
+		Py_DECREF(self->default_value);
+	}
+	if (value != NULL) {
+		Py_INCREF(value);
+	}
+	self->default_value = value;
 }
 
 
