@@ -467,11 +467,15 @@ PyObject* Provider::Resolve(Provider* self, Injector* injector) {
 			}
 		} else if (self->strategy & Strategy::CUSTOM) {
 			assert(self->custom_strategy != NULL);
-			PyPtr<ProviderFactory> factory = ProviderFactory::New(self, injector);
-			if (factory.IsNull()) {
+			PyPtr<> args = PyTuple_New(2);
+			if (args.IsNull()) {
 				return NULL;
 			}
-			return PyObject_CallFunctionObjArgs(self->custom_strategy, factory);
+			Py_INCREF(self);
+			Py_INCREF(injector);
+			PyTuple_SET_ITEM(args, 0, (PyObject*) self);
+			PyTuple_SET_ITEM(args, 1, (PyObject*) injector);
+			return PyObject_Call(self->custom_strategy, args, NULL);
 		} else {
 			if (self->own_scope) {
 				Injector* scope = Injector::New(injector, self->own_scope);
@@ -550,49 +554,6 @@ PyObject* BoundProvider::__call__(BoundProvider* self, PyObject* args, PyObject*
 
 
 void BoundProvider::__dealloc__(BoundProvider* self) {
-	Py_XDECREF(self->provider);
-	Py_XDECREF(self->injector);
-	Super::__dealloc__(self);
-}
-
-
-ProviderFactory* ProviderFactory::New(Provider* provider, Injector* injector) {
-	assert(Provider::CheckExact(provider));
-	assert(Injector::CheckExact(injector));
-
-	ProviderFactory* self = ProviderFactory::Alloc();
-	if (self == NULL) { return NULL; }
-
-	assert(Provider::CheckExact(provider));
-	assert(Injector::CheckExact(injector));
-
-	Py_INCREF(provider);
-	Py_INCREF(injector);
-
-	self->provider = provider;
-	self->injector = injector;
-
-	return self;
-}
-
-
-PyObject* ProviderFactory::__call__(ProviderFactory* self, PyObject* args, PyObject** kwargs) {
-	//TODO: ha vannak paraméterek, akkor hiba
-
-	if (self->provider->own_scope) {
-		PyPtr<Injector> injector = Injector::New(self->injector, self->provider->own_scope);
-		if (injector.IsNull()) {
-			return NULL;
-		}
-		return _provider::Factory<true>(self->provider, injector);
-	} else {
-		return _provider::Factory<true>(self->provider, self->injector);
-	}
-
-}
-
-
-void ProviderFactory::__dealloc__(ProviderFactory* self) {
 	Py_XDECREF(self->provider);
 	Py_XDECREF(self->injector);
 	Super::__dealloc__(self);

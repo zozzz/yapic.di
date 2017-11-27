@@ -107,19 +107,6 @@ public:
 };
 
 
-class ProviderFactory: public Yapic::Type<ProviderFactory, Yapic::Object> {
-public:
-	Provider* provider;
-	Injector* injector;
-
-	Yapic_PrivateNew;
-
-	static ProviderFactory* New(Provider* provider, Injector* injector);
-	static PyObject* __call__(ProviderFactory* self, PyObject* args, PyObject** kwargs);
-	static void __dealloc__(ProviderFactory* self);
-};
-
-
 class ValueResolver: public Yapic::Type<ValueResolver, Yapic::Object> {
 public:
 	PyObject* id;
