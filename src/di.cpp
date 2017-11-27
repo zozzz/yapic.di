@@ -2,7 +2,7 @@
 
 #include "./di.hpp"
 #include "./injector.hpp"
-#include "./provider.hpp"
+#include "./injectable.hpp"
 #include "./resolver.hpp"
 #include "./kwonly.hpp"
 

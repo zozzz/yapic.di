@@ -81,7 +81,7 @@ PyObject* Injector::Provide(Injector* self, PyObject* id, PyObject* value, PyObj
 		Py_RETURN_NONE;
 	}
 
-	value = (PyObject*) Provider::New(value, strategy, provide);
+	value = (PyObject*) Injectable::New(value, strategy, provide);
 	if (value == NULL) {
 		return NULL;
 	}
@@ -139,13 +139,13 @@ PyObject* Injector::provide(Injector* self, PyObject* args, PyObject* kwargs) {
 }
 
 PyObject* Injector::get(Injector* self, PyObject* id) {
-	PyObject* provider = Injector::Find(self, id);
-	if (provider == NULL) {
-		PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_ProviderNotFound, id);
+	PyObject* injectable = Injector::Find(self, id);
+	if (injectable == NULL) {
+		PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_InjectableNotFound, id);
 		return NULL;
 	}
-	assert(Provider::CheckExact(provider));
-	return Provider::Resolve((Provider*) provider, self);
+	assert(Injectable::CheckExact(injectable));
+	return Injectable::Resolve((Injectable*) injectable, self);
 }
 
 // TODO: doksiba leírni, hogy ez nem cachel, és ha sűrűn kell meghívni,
@@ -157,18 +157,18 @@ PyObject* Injector::exec(Injector* self, PyObject* args, PyObject* kwargs) {
 	PyObject* provide = NULL;
 
 	if (PyArg_ParseTupleAndKeywords(args, kwargs, "O|O:exec", kwlist, &callable, &provide)) {
-		Provider* provider = Provider::New(callable, Provider::Strategy::FACTORY, provide);
-		if (provider == NULL) {
+		Injectable* injectable = Injectable::New(callable, Injectable::Strategy::FACTORY, provide);
+		if (injectable == NULL) {
 			return NULL;
 		}
-		return Provider::Resolve(provider, self);
+		return Injectable::Resolve(injectable, self);
 	}
 
 	return NULL;
 }
 
 // vissztér egy olyan azonosítóval, ami használható azonsítóként
-// hasznos akkor ha egy sima függvényt akarunk injctálni saját providerekkel
+// hasznos akkor ha egy sima függvényt akarunk injctálni saját injectableekkel
 PyObject* Injector::injectable(Injector* self, PyObject* args, PyObject* kwargs) {
 	static char *kwlist[] = {"value", "strategy", "provide", NULL};
 	return NULL;

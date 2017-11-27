@@ -5,7 +5,7 @@
 
 namespace ZenoDI {
 
-namespace _provider {
+namespace _injectable {
 	static inline PyObject* NewValueResolver(PyObject* name, PyObject* annots, PyObject* defaultValue) {
 		assert(name != NULL && PyUnicode_Check(name));
 		assert(annots == NULL || PyDict_Check(annots));
@@ -62,7 +62,7 @@ namespace _provider {
 				return NULL;
 			}
 
-			static inline bool Arguments(Provider* provider, PyCodeObject* code,
+			static inline bool Arguments(Injectable* injectable, PyCodeObject* code,
 										 PyObject* defaults, PyObject* kwdefaults, PyObject* annots, int offset) {
 
 				int argcount = code->co_argcount - offset;
@@ -91,7 +91,7 @@ namespace _provider {
 						PyTuple_SET_ITEM(args, i - offset, resolver);
 					}
 
-					provider->args = args.Steal();
+					injectable->args = args.Steal();
 				}
 
 				if (code->co_kwonlyargcount) {
@@ -111,13 +111,13 @@ namespace _provider {
 						}
 					}
 
-					provider->kwargs = kwargs.Steal();
+					injectable->kwargs = kwargs.Steal();
 				}
 
 				return true;
 			}
 
-			static inline bool Arguments(Provider* provider, PyObject* obj, int offset) {
+			static inline bool Arguments(Injectable* injectable, PyObject* obj, int offset) {
 				PyPtr<PyCodeObject> code = NULL;
 				PyPtr<> callable = GetCallable(obj, code);
 				// printf("Real Callable %s\n", ZenoDI_REPR(callable));
@@ -162,11 +162,11 @@ namespace _provider {
 					}
 				}
 
-				return Arguments(provider, code, defaults, kwdefaults, annots, offset);
+				return Arguments(injectable, code, defaults, kwdefaults, annots, offset);
 			}
 		} /* end namespace Callable */
 
-		static inline bool Attributes(Provider* provider, PyObject* type) {
+		static inline bool Attributes(Injectable* injectable, PyObject* type) {
 			PyPtr<> attributes = PyDict_New();
 			if (attributes.IsNull()) {
 				return false;
@@ -201,7 +201,7 @@ namespace _provider {
 				}
 			}
 
-			provider->attributes = attributes.Steal();
+			injectable->attributes = attributes.Steal();
 			return true;
 		}
 	} /* end namespace Collect */
@@ -261,14 +261,14 @@ namespace _provider {
 	}
 
 	template<bool UseKwOnly>
-	static inline PyObject* Factory(Provider* provider, Injector* injector) {
-		PyPtr<> args = PyTuple_New((provider->args ? PyTuple_GET_SIZE(provider->args) : 0));
+	static inline PyObject* Factory(Injectable* injectable, Injector* injector) {
+		PyPtr<> args = PyTuple_New((injectable->args ? PyTuple_GET_SIZE(injectable->args) : 0));
 		if (args.IsNull()) {
 			return NULL;
 		}
 
 		for (Py_ssize_t i = 0 ; i<PyTuple_GET_SIZE(args) ; i++) {
-			ValueResolver* resolver = (ValueResolver*) PyTuple_GET_ITEM(provider->args, i);
+			ValueResolver* resolver = (ValueResolver*) PyTuple_GET_ITEM(injectable->args, i);
 			assert(ValueResolver::CheckExact(resolver));
 
 			PyObject* arg = ValueResolver::Resolve<false>(resolver, injector);
@@ -279,7 +279,7 @@ namespace _provider {
 		}
 
 		PyPtr<> kwargs = NULL;
-		if (provider->kwargs) {
+		if (injectable->kwargs) {
 			kwargs = PyDict_New();
 			if (kwargs.IsNull()) {
 				return NULL;
@@ -289,7 +289,7 @@ namespace _provider {
 			PyObject* value;
 			Py_ssize_t pos = 0;
 
-			while (PyDict_Next(provider->kwargs, &pos, &key, &value)) {
+			while (PyDict_Next(injectable->kwargs, &pos, &key, &value)) {
 				PyObject* arg = ValueResolver::Resolve<true && UseKwOnly>((ValueResolver*) value, injector);
 				if (arg == NULL) {
 					return NULL;
@@ -300,10 +300,10 @@ namespace _provider {
 			}
 		}
 
-		assert(provider->value != NULL);
+		assert(injectable->value != NULL);
 
-		if (provider->value_type == Provider::ValueType::CLASS) {
-			PyPtr<> __new__ = PyObject_GetAttr(provider->value, Module::State()->STR_NEW);
+		if (injectable->value_type == Injectable::ValueType::CLASS) {
+			PyPtr<> __new__ = PyObject_GetAttr(injectable->value, Module::State()->STR_NEW);
 			if (__new__.IsNull()) {
 				return NULL;
 			}
@@ -313,8 +313,8 @@ namespace _provider {
 				return NULL;
 			}
 
-			Py_INCREF(provider->value);
-			PyTuple_SET_ITEM(newArgs, 0, provider->value);
+			Py_INCREF(injectable->value);
+			PyTuple_SET_ITEM(newArgs, 0, injectable->value);
 			for (Py_ssize_t i = 0 ; i<PyTuple_GET_SIZE(args) ; i++) {
 				PyObject* a = PyTuple_GET_ITEM(args, i);
 				Py_INCREF(a);
@@ -326,12 +326,12 @@ namespace _provider {
 				return NULL;
 			}
 
-			if (provider->attributes) {
+			if (injectable->attributes) {
 				PyObject* key;
 				PyObject* value;
 				Py_ssize_t pos = 0;
 
-				while (PyDict_Next(provider->attributes, &pos, &key, &value)) {
+				while (PyDict_Next(injectable->attributes, &pos, &key, &value)) {
 					PyObject* attr = ValueResolver::Resolve<false>((ValueResolver*) value, injector);
 					if (attr == NULL) {
 						return NULL;
@@ -350,19 +350,19 @@ namespace _provider {
 				return NULL;
 			}
 			return obj.Steal();
-		} else if (provider->value_type == Provider::ValueType::FUNCTION) {
-			return PyObject_Call(provider->value, args, kwargs);
+		} else if (injectable->value_type == Injectable::ValueType::FUNCTION) {
+			return PyObject_Call(injectable->value, args, kwargs);
 		} else {
 			PyErr_BadInternalCall();
 			return NULL;
 		}
 	}
 
-} // end namespace _provider
+} // end namespace _injectable
 
 
-Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* provide) {
-	PyPtr<Provider> self = Provider::Alloc();
+Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyObject* provide) {
+	PyPtr<Injectable> self = Injectable::Alloc();
 	if (self.IsNull()) {
 		return NULL;
 	}
@@ -376,10 +376,10 @@ Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* 
 	self->custom_strategy = NULL;
 	self->strategy = strategy;
 
-	if (strategy & Provider::Strategy::FACTORY) {
+	if (strategy & Injectable::Strategy::FACTORY) {
 		if (PyType_Check(value)) {
-			self->value_type = Provider::ValueType::CLASS;
-			if (!_provider::Collect::Attributes(self, value)) {
+			self->value_type = Injectable::ValueType::CLASS;
+			if (!_injectable::Collect::Attributes(self, value)) {
 				return NULL;
 			}
 
@@ -389,7 +389,7 @@ Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* 
 			}
 
 			// __init__ is optional
-			if (!_provider::Collect::Callable::Arguments(self, init, 1)) {
+			if (!_injectable::Collect::Callable::Arguments(self, init, 1)) {
 				if (PyErr_ExceptionMatches(Module::State()->ExcProvideError)) {
 					PyErr_Clear();
 				} else {
@@ -397,21 +397,21 @@ Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* 
 				}
 			}
 		} else {
-			self->value_type = Provider::ValueType::FUNCTION;
-			if (!_provider::Collect::Callable::Arguments(self, value, 0)) {
+			self->value_type = Injectable::ValueType::FUNCTION;
+			if (!_injectable::Collect::Callable::Arguments(self, value, 0)) {
 				return NULL;
 			}
 		}
 	} else {
-		self->value_type = Provider::ValueType::OTHER;
+		self->value_type = Injectable::ValueType::OTHER;
 	}
 
 	if (provide != NULL) {
-		if (self->value_type == Provider::ValueType::OTHER || (self->strategy & Strategy::VALUE)) {
+		if (self->value_type == Injectable::ValueType::OTHER || (self->strategy & Strategy::VALUE)) {
 			PyErr_SetString(Module::State()->ExcProvideError, ZenoDI_Err_GotProvideForValue);
 			return NULL;
 		} else {
-			self->own_scope = _provider::CreateOwnScope(provide);
+			self->own_scope = _injectable::CreateOwnScope(provide);
 			if (self->own_scope == NULL) {
 				return NULL;
 			}
@@ -422,37 +422,37 @@ Provider* Provider::New(PyObject* value, Provider::Strategy strategy, PyObject* 
 }
 
 
-Provider* Provider::New(PyObject* value, PyObject* strategy, PyObject* provide) {
-	Provider::Strategy strat = Provider::Strategy::FACTORY;
+Injectable* Injectable::New(PyObject* value, PyObject* strategy, PyObject* provide) {
+	Injectable::Strategy strat = Injectable::Strategy::FACTORY;
 	if (strategy != NULL) {
 		if (!PyLong_Check(strategy)) {
 			if (!PyCallable_Check(strategy)) {
 				PyErr_Format(Module::State()->ExcProvideError, ZenoDI_Err_GotInvalidStrategy, strategy);
 				return NULL;
 			} else {
-				strat = Provider::Strategy::CUSTOM | Provider::Strategy::FACTORY;
-				Provider* provider = Provider::New(value, strat, provide);
-				if (provider == NULL) {
+				strat = Injectable::Strategy::CUSTOM | Injectable::Strategy::FACTORY;
+				Injectable* injectable = Injectable::New(value, strat, provide);
+				if (injectable == NULL) {
 					return NULL;
 				}
 				Py_INCREF(strategy);
-				provider->custom_strategy = strategy;
-				return provider;
+				injectable->custom_strategy = strategy;
+				return injectable;
 			}
 		} else {
-			strat = (Provider::Strategy) PyLong_AS_LONG(strategy);
-			if (!(strat & Provider::Strategy::ALL)) {
+			strat = (Injectable::Strategy) PyLong_AS_LONG(strategy);
+			if (!(strat & Injectable::Strategy::ALL)) {
 				PyErr_Format(Module::State()->ExcProvideError, ZenoDI_Err_GotInvalidStrategyInt, strategy);
 				return NULL;
 			}
 		}
 	}
 
-	return Provider::New(value, strat, provide);
+	return Injectable::New(value, strat, provide);
 }
 
 
-PyObject* Provider::Resolve(Provider* self, Injector* injector) {
+PyObject* Injectable::Resolve(Injectable* self, Injector* injector) {
 	if (self->strategy & Strategy::VALUE) {
 		Py_INCREF(self->value);
 		return self->value;
@@ -482,9 +482,9 @@ PyObject* Provider::Resolve(Provider* self, Injector* injector) {
 				if (scope == NULL) {
 					return NULL;
 				}
-				return _provider::Factory<true>(self, scope);
+				return _injectable::Factory<true>(self, scope);
 			} else {
-				return _provider::Factory<true>(self, injector);
+				return _injectable::Factory<true>(self, injector);
 			}
 		}
 	} else {
@@ -494,11 +494,11 @@ PyObject* Provider::Resolve(Provider* self, Injector* injector) {
 }
 
 
-PyObject* Provider::__call__(Provider* self, PyObject* args, PyObject** kwargs) {
+PyObject* Injectable::__call__(Injectable* self, PyObject* args, PyObject** kwargs) {
 	PyObject* injector;
 	if (PyArg_UnpackTuple(args, "__call__", 1, 1, &injector)) {
 		if (Injector::CheckExact(injector)) {
-			return Provider::Resolve(self, (Injector*) injector);
+			return Injectable::Resolve(self, (Injector*) injector);
 		} else {
 			PyErr_BadArgument();
 			return NULL;
@@ -507,7 +507,7 @@ PyObject* Provider::__call__(Provider* self, PyObject* args, PyObject** kwargs) 
 	return NULL;
 }
 
-void Provider::__dealloc__(Provider* self) {
+void Injectable::__dealloc__(Injectable* self) {
 	Py_CLEAR(self->value);
 	Py_CLEAR(self->args);
 	Py_CLEAR(self->kwargs);
@@ -517,9 +517,9 @@ void Provider::__dealloc__(Provider* self) {
 	Super::__dealloc__(self);
 }
 
-PyObject* Provider::bind(Provider* self, Injector* injector) {
+PyObject* Injectable::bind(Injectable* self, Injector* injector) {
 	if (Injector::CheckExact(injector)) {
-		return (PyObject*) BoundProvider::New(self, injector);
+		return (PyObject*) BoundInjectable::New(self, injector);
 	} else {
 		PyErr_BadArgument();
 		return NULL;
@@ -527,34 +527,34 @@ PyObject* Provider::bind(Provider* self, Injector* injector) {
 }
 
 
-BoundProvider* BoundProvider::New(Provider* provider, Injector* injector) {
-	assert(Provider::CheckExact(provider));
+BoundInjectable* BoundInjectable::New(Injectable* injectable, Injector* injector) {
+	assert(Injectable::CheckExact(injectable));
 	assert(Injector::CheckExact(injector));
 
-	BoundProvider* self = BoundProvider::Alloc();
+	BoundInjectable* self = BoundInjectable::Alloc();
 	if (self == NULL) { return NULL; }
 
-	assert(Provider::CheckExact(provider));
+	assert(Injectable::CheckExact(injectable));
 	assert(Injector::CheckExact(injector));
 
-	Py_INCREF(provider);
+	Py_INCREF(injectable);
 	Py_INCREF(injector);
 
-	self->provider = provider;
+	self->injectable = injectable;
 	self->injector = injector;
 
 	return self;
 }
 
 
-PyObject* BoundProvider::__call__(BoundProvider* self, PyObject* args, PyObject** kwargs) {
+PyObject* BoundInjectable::__call__(BoundInjectable* self, PyObject* args, PyObject** kwargs) {
 	//TODO: ha vannak paraméterek, akkor hiba
-	return Provider::Resolve(self->provider, self->injector);
+	return Injectable::Resolve(self->injectable, self->injector);
 }
 
 
-void BoundProvider::__dealloc__(BoundProvider* self) {
-	Py_XDECREF(self->provider);
+void BoundInjectable::__dealloc__(BoundInjectable* self) {
+	Py_XDECREF(self->injectable);
 	Py_XDECREF(self->injector);
 	Super::__dealloc__(self);
 }

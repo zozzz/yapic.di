@@ -4,11 +4,11 @@
 namespace ZenoDI {
 	namespace _resolver {
 		static inline PyObject* ResolveByType(Injector* injector, PyObject* type) {
-			Provider* provider = (Provider*) Injector::Find(injector, type);
-			if (provider == NULL) {
+			Injectable* injectable = (Injectable*) Injector::Find(injector, type);
+			if (injectable == NULL) {
 				return NULL;
-			} else if (Provider::CheckExact(provider)) {
-				return Provider::Resolve(provider, injector);
+			} else if (Injectable::CheckExact(injectable)) {
+				return Injectable::Resolve(injectable, injector);
 			} else {
 				return NULL;
 			}
@@ -88,7 +88,7 @@ PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector) {
 		return self->default_value;
 	}
 
-	PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_ProviderNotFound, self);
+	PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_InjectableNotFound, self);
 	return NULL;
 }
 

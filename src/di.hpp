@@ -48,7 +48,7 @@ public:
 };
 
 
-class Provider: public Yapic::Type<Provider, Yapic::Object> {
+class Injectable: public Yapic::Type<Injectable, Yapic::Object> {
 public:
 	enum ValueType {
 		CLASS = 1,
@@ -77,16 +77,16 @@ public:
 
 	Yapic_PrivateNew;
 
-	static Provider* New(PyObject* value, Strategy strategy, PyObject* provide);
-	static Provider* New(PyObject* value, PyObject* strategy, PyObject* provide);
-	static PyObject* Resolve(Provider* self, Injector* injector);
-	// static PyObject* Exec(Provider* self, Injector* injector);
+	static Injectable* New(PyObject* value, Strategy strategy, PyObject* provide);
+	static Injectable* New(PyObject* value, PyObject* strategy, PyObject* provide);
+	static PyObject* Resolve(Injectable* self, Injector* injector);
+	// static PyObject* Exec(Injectable* self, Injector* injector);
 	// egy injectort vár paraméternek, és így vissza tudja adni azt, amit kell
-	static PyObject* __call__(Provider* self, PyObject* args, PyObject** kwargs);
-	static void __dealloc__(Provider* self);
-	// visszaad egy bounded provider objektumot, aminek már nem kell megadni
+	static PyObject* __call__(Injectable* self, PyObject* args, PyObject** kwargs);
+	static void __dealloc__(Injectable* self);
+	// visszaad egy bounded injectable objektumot, aminek már nem kell megadni
 	// az injector objektumot, akkor ha meghívjuk
-	static PyObject* bind(Provider* self, Injector* injector);
+	static PyObject* bind(Injectable* self, Injector* injector);
 
 	Yapic_METHODS_BEGIN
 		Yapic_Method(bind, METH_O, "")
@@ -94,16 +94,16 @@ public:
 };
 
 
-class BoundProvider: public Yapic::Type<BoundProvider, Yapic::Object> {
+class BoundInjectable: public Yapic::Type<BoundInjectable, Yapic::Object> {
 public:
-	Provider* provider;
+	Injectable* injectable;
 	Injector* injector;
 
 	Yapic_PrivateNew;
 
-	static BoundProvider* New(Provider* provider, Injector* injector);
-	static PyObject* __call__(BoundProvider* self, PyObject* args, PyObject** kwargs);
-	static void __dealloc__(BoundProvider* self);
+	static BoundInjectable* New(Injectable* injectable, Injector* injector);
+	static PyObject* __call__(BoundInjectable* self, PyObject* args, PyObject** kwargs);
+	static void __dealloc__(BoundInjectable* self);
 };
 
 
@@ -128,7 +128,7 @@ public:
 
 class KwOnly: public Yapic::Type<KwOnly, Yapic::Object> {
 public:
-	Provider* getter;
+	Injectable* getter;
 	ValueResolver* name_resolver;
 	ValueResolver* type_resolver;
 
@@ -185,16 +185,16 @@ public:
 		state->STR_KWA_NAME = "name";
 		state->STR_KWA_TYPE = "type";
 
-		state->VALUE.Value(Provider::Strategy::VALUE).Export("VALUE");
-		state->FACTORY.Value(Provider::Strategy::FACTORY).Export("FACTORY");
+		state->VALUE.Value(Injectable::Strategy::VALUE).Export("VALUE");
+		state->FACTORY.Value(Injectable::Strategy::FACTORY).Export("FACTORY");
 		state->SINGLETON.Value(
-			Provider::Strategy::SINGLETON |
-			Provider::Strategy::FACTORY
+			Injectable::Strategy::SINGLETON |
+			Injectable::Strategy::FACTORY
 		).Export("SINGLETON");
 		state->GLOBAL.Value(
-			Provider::Strategy::GLOBAL |
-			Provider::Strategy::SINGLETON |
-			Provider::Strategy::FACTORY
+			Injectable::Strategy::GLOBAL |
+			Injectable::Strategy::SINGLETON |
+			Injectable::Strategy::FACTORY
 		).Export("GLOBAL");
 
 		state->ExcBase.Define("InjectorError", PyExc_TypeError);
@@ -211,8 +211,8 @@ public:
 		Py_DECREF(method);
 
 		Injector::Register(module);
-		Provider::Register(module);
-		BoundProvider::Register(module);
+		Injectable::Register(module);
+		BoundInjectable::Register(module);
 		ValueResolver::Register(module);
 		KwOnly::Register(module);
 
