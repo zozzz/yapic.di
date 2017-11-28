@@ -16,7 +16,7 @@ define_macros = {
     "ZENO_DI_VERSION_PATCH": VERSION.split(".")[2],
 }
 undef_macros = []
-extra_compile_args = []
+extra_compile_args = []  # -flto
 
 if sys.platform == "win32":
     define_macros["UNICODE"] = 1

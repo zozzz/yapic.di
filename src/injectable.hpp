@@ -30,84 +30,124 @@ namespace _injectable {
 		 * 			+ has __code__
 		 */
 		namespace Callable {
-			static inline PyObject* GetCallable(PyObject* callable, PyPtr<PyCodeObject>& code) {
-				code = PyObject_GetAttr(callable, Module::State()->STR_CODE);
-				if (code.IsNull()) {
-					PyErr_Clear();
+			static inline bool GetFunction(PyObject* callable, PyFunctionObject*& func, PyObject*& self) {
+				if (PyFunction_Check(callable)) {
+					func = (PyFunctionObject*) callable;
+					self = NULL;
+					return true;
+				} else if (PyMethod_Check(callable)) {
+					func = (PyFunctionObject*) PyMethod_GET_FUNCTION(callable);
+					assert(PyFunction_Check(func));
+					self = PyMethod_GET_SELF(callable);
+					return true;
+				} else {
 					/**
 					 * class X:
 					 *     def __call__(self): pass
 					 */
 					PyPtr<> __call__ = PyObject_GetAttr(callable, Module::State()->STR_CALL);
 					if (__call__.IsValid()) {
-						if (PyObject_IsInstance(__call__, Module::State()->MethodWrapperType)) {
-							// got builtin or any other unsupported callable object
-							PyErr_Format(Module::State()->ExcProvideError, ZenoDI_Err_GotBuiltinCallable, callable);
-							return NULL;
-						} else {
-							return GetCallable(__call__, code);
+						if (!PyObject_IsInstance(__call__, Module::State()->MethodWrapperType)) {
+							return GetFunction(__call__, func, self);
 						}
+					} else {
+						PyErr_Clear();
 					}
-				} else if (PyCallable_Check(callable)) {
-					/**
-					 * Normal functions:
-					 * - def fn(): pass
-					 * - x().bounded
-					 */
-					Py_INCREF(callable);
-					return callable;
 				}
+
 				// got builtin or any other unsupported callable object
 				PyErr_Format(Module::State()->ExcProvideError, ZenoDI_Err_GotBuiltinCallable, callable);
 				return NULL;
 			}
 
-			static inline bool Arguments(Injectable* injectable, PyCodeObject* code,
-										 PyObject* defaults, PyObject* kwdefaults, PyObject* annots, int offset) {
+			static inline bool Arguments(Injectable* injectable, PyObject* obj, int offset) {
+				PyFunctionObject* func;
+				PyObject* self;
+				if (!GetFunction(obj, func, self)) {
+					return false;
+				}
+				// printf("Real Function %s SELF %s\n", ZenoDI_REPR(func), ZenoDI_REPR(self));
+
+				if (offset == 0 && self != NULL) {
+					offset = 1;
+				}
+
+				PyCodeObject* code = (PyCodeObject*) PyFunction_GET_CODE(func);
+				if (code != NULL) {
+					assert(PyCode_Check(code));
+				}
+
+				PyObject* annots = PyFunction_GET_ANNOTATIONS(func);
+				if (annots != NULL) {
+					assert(PyDict_CheckExact(annots));
+				}
 
 				int argcount = code->co_argcount - offset;
 				assert(argcount >= 0);
-
 				if (argcount) {
 					assert(PyTuple_CheckExact(code->co_varnames));
+					assert(PyTuple_GET_SIZE(code->co_varnames) >= argcount);
 
 					PyPtr<> args = PyTuple_New(argcount);
 					if (args.IsNull()) {
 						return false;
 					}
 
-					int defcount = (defaults == NULL ? 0 : (int) PyTuple_GET_SIZE(defaults));
-					int defcounter = 0;
-					for (int i=offset ; i<code->co_argcount ; ++i) {
-						assert(PyTuple_GET_SIZE(code->co_varnames) > i);
-
-						PyObject* def = (defcount && code->co_argcount - defcount <= i
-							? PyTuple_GET_ITEM(defaults, defcounter++)
-							: NULL);
-						PyObject* resolver = NewValueResolver(PyTuple_GET_ITEM(code->co_varnames, i), annots, def);
-						if (resolver == NULL) {
-							return false;
+					PyObject* defaults = PyFunction_GET_DEFAULTS(func);
+					if (defaults == NULL) {
+						for (int i=offset ; i<code->co_argcount ; ++i) {
+							PyObject* resolver = NewValueResolver(PyTuple_GET_ITEM(code->co_varnames, i), annots, NULL);
+							if (resolver == NULL) {
+								return false;
+							}
+							PyTuple_SET_ITEM(args, i - offset, resolver);
 						}
-						PyTuple_SET_ITEM(args, i - offset, resolver);
-					}
+					} else {
+						assert(PyTuple_CheckExact(defaults));
 
+						Py_ssize_t defcount = PyTuple_GET_SIZE(defaults);
+						Py_ssize_t defcounter = 0;
+						for (Py_ssize_t i=offset ; i<code->co_argcount ; ++i) {
+							PyObject* def = (code->co_argcount - defcount <= i
+								? PyTuple_GET_ITEM(defaults, defcounter++)
+								: NULL);
+							PyObject* resolver = NewValueResolver(PyTuple_GET_ITEM(code->co_varnames, i), annots, def);
+							if (resolver == NULL) {
+								return false;
+							}
+							PyTuple_SET_ITEM(args, i - offset, resolver);
+						}
+					}
 					injectable->args = args.Steal();
 				}
 
 				if (code->co_kwonlyargcount) {
+					assert(PyTuple_GET_SIZE(code->co_varnames) >= code->co_kwonlyargcount + code->co_argcount);
+
 					PyPtr<> kwargs = PyDict_New();
 					if (kwargs.IsNull()) {
 						return false;
 					}
 
-					for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
-						assert(PyTuple_GET_SIZE(code->co_varnames) > i);
-						PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i); // borrowed
-						PyObject* def = kwdefaults != NULL ? PyDict_GetItem(kwdefaults, name) : NULL; // borrowed
-						// TODO: ArgumentResolver
-						PyPtr<> resolver = NewValueResolver(name, annots, def);
-						if (resolver.IsNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
-							return false;
+					PyObject* kwdefaults = PyFunction_GET_KW_DEFAULTS(func);
+					if (kwdefaults == NULL) {
+						for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
+							PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i); // borrowed
+							PyPtr<> resolver = NewValueResolver(name, annots, NULL);
+							if (resolver.IsNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
+								return false;
+							}
+						}
+					} else {
+						assert(PyDict_CheckExact(kwdefaults));
+
+						for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
+							PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i); // borrowed
+							PyObject* def = PyDict_GetItem(kwdefaults, name); // borrowed
+							PyPtr<> resolver = NewValueResolver(name, annots, def);
+							if (resolver.IsNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
+								return false;
+							}
 						}
 					}
 
@@ -115,54 +155,6 @@ namespace _injectable {
 				}
 
 				return true;
-			}
-
-			static inline bool Arguments(Injectable* injectable, PyObject* obj, int offset) {
-				PyPtr<PyCodeObject> code = NULL;
-				PyPtr<> callable = GetCallable(obj, code);
-				// printf("Real Callable %s\n", ZenoDI_REPR(callable));
-
-				if (callable.IsNull()) {
-					return false;
-				}
-
-				// TODO: Refactor use PyFunctionObject* instead of getting attributes
-
-				// def defaults(arg1=1)
-				PyPtr<> defaults = PyObject_GetAttr(callable, Module::State()->STR_DEFAULTS);
-				if (defaults.IsNull()) {
-					PyErr_Clear();
-				} else if (defaults == Py_None) {
-					defaults.Clear();
-				} else {
-					assert(PyTuple_CheckExact(defaults));
-				}
-
-				// def kwonly(*, kw1, kw2=2)
-				PyPtr<> kwdefaults = NULL;
-				if (code->co_kwonlyargcount) {
-					kwdefaults = PyObject_GetAttr(callable, Module::State()->STR_KWDEFAULTS);
-					if (kwdefaults.IsNull()) {
-						PyErr_Clear();
-					}
-				}
-
-				// def fn(arg1: SomeType)
-				PyPtr<> annots = PyObject_GetAttr(callable, Module::State()->STR_ANNOTATIONS);
-				if (annots.IsNull()) {
-					PyErr_Clear();
-				}
-
-				if (!offset) {
-					PyPtr<> cself = PyObject_GetAttr(callable, Module::State()->STR_SELF);
-					if (cself.IsNull()) {
-						PyErr_Clear();
-					} else {
-						offset = 1;
-					}
-				}
-
-				return Arguments(injectable, code, defaults, kwdefaults, annots, offset);
 			}
 		} /* end namespace Callable */
 
@@ -193,6 +185,7 @@ namespace _injectable {
 				Py_ssize_t pos = 0;
 
 				while (PyDict_Next(annots, &pos, &key, &value)) {
+					// TODO: skip ClassVar[...]
 					// TODO: maybe default value???
 					PyPtr<> resolver = (PyObject*) ValueResolver::New(key, value, NULL);
 					if (PyDict_SetItem(attributes, key, resolver) == -1) {
@@ -303,51 +296,27 @@ namespace _injectable {
 		assert(injectable->value != NULL);
 
 		if (injectable->value_type == Injectable::ValueType::CLASS) {
-			PyPtr<> __new__ = PyObject_GetAttr(injectable->value, Module::State()->STR_NEW);
-			if (__new__.IsNull()) {
+			PyTypeObject* type = (PyTypeObject*) injectable->value;
+			if (type->tp_new == NULL) {
+				PyErr_Format(PyExc_TypeError, "cannot create '%.100s' instances", type->tp_name);
 				return NULL;
 			}
 
-			PyPtr<> newArgs = PyTuple_New(PyTuple_GET_SIZE(args) + 1);
-			if (newArgs.IsNull()) {
-				return NULL;
-			}
-
-			Py_INCREF(injectable->value);
-			PyTuple_SET_ITEM(newArgs, 0, injectable->value);
-			for (Py_ssize_t i = 0 ; i<PyTuple_GET_SIZE(args) ; i++) {
-				PyObject* a = PyTuple_GET_ITEM(args, i);
-				Py_INCREF(a);
-				PyTuple_SET_ITEM(newArgs, i+1, a);
-			}
-
-			PyPtr<> obj = PyObject_Call(__new__, newArgs, kwargs);
+			PyPtr<> obj = type->tp_new(type, args, kwargs);
 			if (obj.IsNull()) {
 				return NULL;
 			}
 
-			if (injectable->attributes) {
-				PyObject* key;
-				PyObject* value;
-				Py_ssize_t pos = 0;
+			if (!PyType_IsSubtype(Py_TYPE(obj), type)) {
+        		return obj;
+			}
 
-				while (PyDict_Next(injectable->attributes, &pos, &key, &value)) {
-					PyObject* attr = ValueResolver::Resolve<false>((ValueResolver*) value, injector);
-					if (attr == NULL) {
-						return NULL;
-					}
-					if (PyObject_SetAttr(obj, key, attr) == -1) {
-						return NULL;
-					}
+			type = Py_TYPE(obj);
+			if (type->tp_init != NULL) {
+				int res = type->tp_init(obj, args, kwargs);
+				if (res < 0) {
+					return NULL;
 				}
-			}
-
-			PyPtr<> __init__ = PyObject_GetAttr(obj, Module::State()->STR_INIT);
-			if (__init__.IsNull()) {
-				return NULL;
-			}
-			if (PyObject_Call(__init__, args, kwargs) == NULL) {
-				return NULL;
 			}
 			return obj.Steal();
 		} else if (injectable->value_type == Injectable::ValueType::FUNCTION) {
@@ -387,6 +356,8 @@ Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyOb
 			if (init.IsNull()) {
 				return NULL;
 			}
+
+			// printf("init %s ||| tp_init = %p\n", ZenoDI_REPR(init), Py_TYPE(value)->tp_init);
 
 			// __init__ is optional
 			if (!_injectable::Collect::Callable::Arguments(self, init, 1)) {

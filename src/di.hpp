@@ -148,15 +148,10 @@ public:
 
 	static constexpr const char* __name__ = "zeno.di";
 
-	ModuleVar STR_CODE;
-	ModuleVar STR_DEFAULTS;
-	ModuleVar STR_KWDEFAULTS;
 	ModuleVar STR_ANNOTATIONS;
 	ModuleVar STR_QUALNAME;
 	ModuleVar STR_CALL;
 	ModuleVar STR_INIT;
-	ModuleVar STR_NEW;
-	ModuleVar STR_SELF;
 	ModuleVar STR_KWA_NAME;
 	ModuleVar STR_KWA_TYPE;
 
@@ -173,15 +168,10 @@ public:
 	PyObject* MethodWrapperType;
 
 	static inline int __init__(PyObject* module, Module* state) {
-		state->STR_CODE = "__code__";
-		state->STR_DEFAULTS = "__defaults__";
-		state->STR_KWDEFAULTS = "__kwdefaults__";
 		state->STR_ANNOTATIONS = "__annotations__";
 		state->STR_QUALNAME = "__qualname__";
 		state->STR_CALL = "__call__";
 		state->STR_INIT = "__init__";
-		state->STR_NEW = "__new__";
-		state->STR_SELF = "__self__";
 		state->STR_KWA_NAME = "name";
 		state->STR_KWA_TYPE = "type";
 
