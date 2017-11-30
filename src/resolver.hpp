@@ -5,33 +5,34 @@
 
 namespace ZenoDI {
 	namespace _resolver {
-		static inline PyObject* ResolveByType(Injector* injector, PyObject* type) {
-			Injectable* injectable = (Injectable*) Injector::Find(injector, type);
-			if (injectable == NULL) {
-				return NULL;
-			} else if (Injectable::CheckExact(injectable)) {
-				return Injectable::Resolve(injectable, injector);
-			} else {
-				return NULL;
-			}
-		}
-
-		static inline PyObject* ResolveByKw(Injector* injector, PyObject* name, PyObject* type) {
+		static inline PyObject* ResolveByType(Injector* injector, Injector* resolve, PyObject* type) {
 			assert(Injector::CheckExact(injector));
 
 			do {
-				if (injector->kwargs) {
-					assert(PyList_CheckExact(injector->kwargs));
-					PyObject* kwargs = injector->kwargs;
+				PyObject* result = PyDict_GetItem(injector->scope, type);
+				if (result != NULL && Injectable::CheckExact(result)) {
+					return Injectable::Resolve((Injectable*) result, resolve);
+				}
+			} while (injector = injector->parent);
+			return NULL;
+		}
+
+		static inline PyObject* ResolveByKw(Injector* injector, Injector* resolve, PyObject* name, PyObject* type) {
+			assert(Injector::CheckExact(injector));
+
+			do {
+				PyObject* kwargs = injector->kwargs;
+				if (kwargs != NULL) {
+					assert(PyList_CheckExact(kwargs));
 
 					for (Py_ssize_t i=0 ; i < PyList_GET_SIZE(kwargs); i++) {
 						KwOnly* kw = (KwOnly*) PyList_GET_ITEM(kwargs, i);
 						assert(KwOnly::CheckExact(kw));
-						PyObject* val = KwOnly::Resolve(kw, injector, name, type);
-						if (val != NULL) {
-							return val;
-						} else if (PyErr_Occurred()) {
+						PyObject* val = KwOnly::Resolve(kw, resolve, name, type);
+						if (val == NULL && PyErr_Occurred()) {
 							return NULL;
+						} else {
+							return val;
 						}
 					}
 				}
@@ -60,32 +61,41 @@ ValueResolver* ValueResolver::New(PyObject* name, PyObject* id, PyObject* defaul
 }
 
 
+#define ValueResulver_ReturnIfOk(v) \
+	if (v != NULL) { \
+		return v; \
+	} else if (PyErr_Occurred()) { \
+		return NULL;\
+	} \
+
+
 template<bool UseKwOnly>
-PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector) {
+PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector, Injector* own_injector) {
 	// TODO: unpack type, handle Optional[...]
 	PyObject* type = self->id;
+	PyObject* result;
 
 	if (UseKwOnly) {
 		if (self->name) {
-			PyObject* byKw = _resolver::ResolveByKw(injector, self->name, type);
-			if (byKw != NULL) {
-				return byKw;
-			} else if (PyErr_Occurred()) {
-				return NULL;
+			if (own_injector != NULL) {
+				result = _resolver::ResolveByKw(own_injector, injector, self->name, type);
+				ValueResulver_ReturnIfOk(result)
 			}
+			result = _resolver::ResolveByKw(injector, injector, self->name, type);
+			ValueResulver_ReturnIfOk(result)
 		}
 	}
 
 	if (type) {
-		PyObject* byType = _resolver::ResolveByType(injector, type);
-		if (byType != NULL) {
-			return byType;
-		} else if (PyErr_Occurred()) {
-			return NULL;
+		if (own_injector != NULL) {
+			result = _resolver::ResolveByType(own_injector, injector, type);
+			ValueResulver_ReturnIfOk(result)
 		}
+		result = _resolver::ResolveByType(injector, injector, type);
+		ValueResulver_ReturnIfOk(result)
 	}
 
-	if (self->default_value) {
+	if (self->default_value != NULL) {
 		Py_INCREF(self->default_value);
 		return self->default_value;
 	}
@@ -93,6 +103,7 @@ PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector) {
 	return PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_InjectableNotFound, self);
 }
 
+#undef ValueResulver_ReturnIfOk
 
 void ValueResolver::SetId(ValueResolver* self, PyObject* id) {
 	if (self->id != NULL) {

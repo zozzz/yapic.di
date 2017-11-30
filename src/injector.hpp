@@ -57,17 +57,10 @@ PyObject* Injector::Find(Injector* injector, PyObject* id) {
 
 	do {
 		PyObject* result = PyDict_GetItem(injector->scope, id);
-		if (result == NULL) {
-			injector = injector->parent;
-			if (injector == NULL) {
-				return NULL;
-			}
-		} else {
-			Py_INCREF(result);
+		if (result != NULL) {
 			return result;
 		}
-	} while (true);
-
+	} while (injector = injector->parent);
 	return NULL;
 }
 

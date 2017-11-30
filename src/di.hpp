@@ -118,7 +118,7 @@ public:
 
 	static ValueResolver* New(PyObject* name, PyObject* id, PyObject* default_value);
 	template<bool UseKwOnly>
-	static PyObject* Resolve(ValueResolver* self, Injector* injector);
+	static PyObject* Resolve(ValueResolver* self, Injector* injector, Injector* own_injector);
 	static void SetId(ValueResolver* self, PyObject* id);
 	static void SetName(ValueResolver* self, PyObject* name);
 	static void SetDefaultValue(ValueResolver* self, PyObject* value);

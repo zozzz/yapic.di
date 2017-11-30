@@ -29,7 +29,8 @@ if sys.platform == "win32":
         extra_compile_args.append("/MTd")
         extra_compile_args.append("/Zi")
     else:
-        extra_compile_args.append("-Ox")
+        undef_macros.append("_DEBUG")
+        extra_compile_args.append("/Ox")
 
     extra_compile_args.append("/FAs")
 else:

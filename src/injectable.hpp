@@ -286,17 +286,19 @@ namespace _injectable {
 	}
 
 	template<bool UseKwOnly>
-	static inline PyObject* Factory(Injectable* injectable, Injector* injector) {
-		PyPtr<> args = PyTuple_New((injectable->args ? PyTuple_GET_SIZE(injectable->args) : 0));
+	static inline PyObject* Factory(Injectable* injectable, Injector* injector, Injector* own_injector) {
+		PyObject* tmp = injectable->args;
+		Py_ssize_t argc = tmp == NULL ? 0 : PyTuple_GET_SIZE(tmp);
+		PyPtr<> args = PyTuple_New(argc);
 		if (args.IsNull()) {
 			return NULL;
 		}
 
-		for (Py_ssize_t i = 0 ; i<PyTuple_GET_SIZE(args) ; i++) {
-			ValueResolver* resolver = (ValueResolver*) PyTuple_GET_ITEM(injectable->args, i);
+		for (Py_ssize_t i = 0 ; i<argc ; i++) {
+			ValueResolver* resolver = (ValueResolver*) PyTuple_GET_ITEM(tmp, i);
 			assert(ValueResolver::CheckExact(resolver));
 
-			PyObject* arg = ValueResolver::Resolve<false>(resolver, injector);
+			PyObject* arg = ValueResolver::Resolve<false>(resolver, injector, own_injector);
 			if (arg == NULL) {
 				return NULL;
 			}
@@ -304,7 +306,8 @@ namespace _injectable {
 		}
 
 		PyPtr<> kwargs = NULL;
-		if (injectable->kwargs) {
+		tmp = injectable->kwargs;
+		if (tmp != NULL) {
 			kwargs = PyDict_New();
 			if (kwargs.IsNull()) {
 				return NULL;
@@ -312,31 +315,30 @@ namespace _injectable {
 
 			PyObject* key;
 			PyObject* value;
-			Py_ssize_t pos = 0;
+			argc = 0;
 
-			while (PyDict_Next(injectable->kwargs, &pos, &key, &value)) {
-				PyObject* arg = ValueResolver::Resolve<true && UseKwOnly>((ValueResolver*) value, injector);
-				if (arg == NULL) {
-					return NULL;
-				}
-				if (PyDict_SetItem(kwargs, key, arg) == -1) {
+			while (PyDict_Next(tmp, &argc, &key, &value)) {
+				PyObject* arg = ValueResolver::Resolve<UseKwOnly>((ValueResolver*) value, injector, own_injector);
+				if (arg == NULL || PyDict_SetItem(kwargs, key, arg) == -1) {
 					return NULL;
 				}
 			}
 		}
 
-		assert(injectable->value != NULL);
+		tmp = injectable->value;
+		assert(tmp != NULL);
 
 		if (injectable->value_type == Injectable::ValueType::CLASS) {
 			// TODO: kikukázni a Generic paramétereket az összes base osztályban, és provideolni
 
-			PyTypeObject* type = (PyTypeObject*) injectable->value;
-			if (type->tp_new == NULL) {
+			PyTypeObject* type = (PyTypeObject*) tmp;
+			newfunc __new__ = type->tp_new;
+			if (__new__ == NULL) {
 				PyErr_Format(PyExc_TypeError, "cannot create '%.100s' instances", type->tp_name);
 				return NULL;
 			}
 
-			PyPtr<> obj = type->tp_new(type, args, kwargs);
+			PyPtr<> obj = __new__(type, args, kwargs);
 			if (obj.IsNull()) {
 				return NULL;
 			}
@@ -354,7 +356,7 @@ namespace _injectable {
 				Py_ssize_t apos = 0;
 				while (PyDict_Next(injectable->attributes, &apos, &akey, &avalue)) {
 					assert(ValueResolver::CheckExact(avalue));
-					PyPtr<> value = ValueResolver::Resolve<false>((ValueResolver*) avalue, injector);
+					PyPtr<> value = ValueResolver::Resolve<false>((ValueResolver*) avalue, injector, own_injector);
 					if (value.IsNull()) {
 						return NULL;
 					}
@@ -375,7 +377,11 @@ namespace _injectable {
 			}
 			return obj.Steal();
 		} else if (injectable->value_type == Injectable::ValueType::FUNCTION) {
-			return PyObject_Call(injectable->value, args, kwargs);
+			#if Py_DEBUG
+				return PyObject_Call(tmp, args, kwargs);
+			#else
+				return Py_TYPE(tmp)->tp_call(tmp, args, kwargs);
+			#endif
 		} else {
 			PyErr_BadInternalCall();
 			return NULL;
@@ -479,20 +485,17 @@ Injectable* Injectable::New(PyObject* value, PyObject* strategy, PyObject* provi
 
 
 PyObject* Injectable::Resolve(Injectable* self, Injector* injector) {
-	if (self->strategy & Strategy::VALUE) {
-		Py_INCREF(self->value);
-		return self->value;
-	} else if (self->strategy & Strategy::FACTORY) {
-		if (self->strategy & Strategy::SINGLETON) {
+	auto strategy = self->strategy;
+	if (strategy & Strategy::FACTORY) {
+		if (strategy & Strategy::SINGLETON) {
 			// lock begin
-			if (self->strategy & Strategy::GLOBAL) {
+			if (strategy & Strategy::GLOBAL) {
 				// Module::State()->globals[self] ?= instance
 			} else {
 				// injector->scope[self] ?= instance
 			}
 			// lock end
-		} else if (self->strategy & Strategy::CUSTOM) {
-			assert(self->custom_strategy != NULL);
+		} else if (self->custom_strategy != NULL) {
 			PyPtr<> args = PyTuple_New(2);
 			if (args.IsNull()) {
 				return NULL;
@@ -503,20 +506,11 @@ PyObject* Injectable::Resolve(Injectable* self, Injector* injector) {
 			PyTuple_SET_ITEM(args, 1, (PyObject*) injector);
 			return PyObject_Call(self->custom_strategy, args, NULL);
 		} else {
-			Py_INCREF(injector);
-			if (self->own_injector) {
-				Injector* ownInjector = Injector::Clone(self->own_injector);
-				if (ownInjector == NULL) {
-					return NULL;
-				}
-				assert(ownInjector->parent == NULL);
-				ownInjector->parent = injector;
-				injector = ownInjector;
-			}
-			PyObject* res = _injectable::Factory<true>(self, injector);
-			Py_DECREF(injector);
-			return res;
+			return _injectable::Factory<true>(self, injector, self->own_injector);
 		}
+	} else if (strategy & Strategy::VALUE) {
+		Py_INCREF(self->value);
+		return self->value;
 	} else {
 		PyErr_BadInternalCall();
 		return NULL;

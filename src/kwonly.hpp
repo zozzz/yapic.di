@@ -50,7 +50,7 @@ PyObject* KwOnly::Resolve(KwOnly* self, Injector* injector, PyObject* name, PyOb
 		ValueResolver::SetDefaultValue(self->type_resolver, type);
 	}
 
-	PyObject* value = _injectable::Factory<false>(self->getter, injector);
+	PyObject* value = _injectable::Factory<false>(self->getter, injector, NULL);
 	if (value == NULL) {
 		PyObject* exc = PyErr_Occurred(); // borrowed
 		if (PyErr_GivenExceptionMatches(exc, Module::State()->ExcNoKwOnly)) {
