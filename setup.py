@@ -7,6 +7,7 @@ from os import path
 from pathlib import Path
 from setuptools import setup, Extension
 from setuptools.command.test import test as TestCommand
+from setuptools import Command
 
 VERSION = "1.0.0"
 
@@ -109,6 +110,31 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 
+class Benchmark(Command):
+    user_options = [
+        ("file=", "f", "File to run"),
+    ]
+
+    def initialize_options(self):
+        self.file = None
+        self.pytest_args = "-x -s"
+
+    def finalize_options(self):
+        if self.file:
+            self.pytest_args += " " + self.file.replace("\\", "/")
+
+    def run(self):
+        def requirements(dist):
+            yield dist.extras_require["benchmark"]
+
+        cmd_prerun(self, requirements)
+        import shlex
+        import pytest
+        errno = pytest.main(shlex.split(self.pytest_args))
+        sys.exit(errno)
+
+
+
 # typing: https://github.com/python/typing/issues/84
 setup(
     name="zeno.di",
@@ -117,7 +143,14 @@ setup(
     ext_modules=[cpp_ext],
     tests_require=["pytest"],
     python_requires=">=3.5",
+    extras_require={
+        "benchmark": [
+            "pytest",
+            "pytest-benchmark"
+        ]
+    },
     cmdclass={
-        "test": PyTest
+        "test": PyTest,
+        "bench": Benchmark
     }
 )
