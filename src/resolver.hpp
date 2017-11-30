@@ -1,6 +1,8 @@
 #ifndef E59C6756_5133_C8FB_12AD_80BD2DE30129
 #define E59C6756_5133_C8FB_12AD_80BD2DE30129
 
+#include "./di.hpp"
+
 namespace ZenoDI {
 	namespace _resolver {
 		static inline PyObject* ResolveByType(Injector* injector, PyObject* type) {
@@ -88,8 +90,7 @@ PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector) {
 		return self->default_value;
 	}
 
-	PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_InjectableNotFound, self);
-	return NULL;
+	return PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_InjectableNotFound, self);
 }
 
 
@@ -142,7 +143,9 @@ PyObject* ValueResolver::__repr__(ValueResolver* self) {
 	} else {
 		idname = PyObject_GetAttr(self->id, Module::State()->STR_QUALNAME);
 		if (idname == NULL) {
-			return NULL;
+			PyErr_Clear();
+			Py_INCREF(self->id);
+			idname = self->id;
 		}
 	}
 

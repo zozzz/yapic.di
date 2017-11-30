@@ -6,16 +6,47 @@
 namespace ZenoDI {
 
 namespace _injectable {
-	static inline PyObject* NewValueResolver(PyObject* name, PyObject* annots, PyObject* defaultValue) {
+	static inline PyObject* NewVRFromID(Injectable* injectable, PyObject* name, PyObject* id, PyObject* defaultValue) {
+		printf("NewVRFromID %s\n", ZenoDI_REPR(id));
+		// if (PyUnicode_Check(id)) {
+		// 	// TODO: ForwardRef resolver
+		// } else {
+		// 	printf("AAAAAAAAAAAAAAAAA\n");
+		// 	PyPtr<> args = PyObject_GetAttr(id, Module::State()->STR_ARGS);
+		// 	ZenoDI_DUMP(args);
+		// 	if (args.IsNull()) {
+		// 		// simple type, without Generics
+		// 		PyErr_Clear();
+		// 	} else {
+		// 		// have generics like class X(Generic[T])
+		// 		if (((PyObject*) args) != Py_None) {
+		// 			PyPtr<> origin = PyObject_GetAttr(id, Module::State()->STR_ORIGIN);
+		// 			if (origin.IsNull()) {
+		// 				return NULL;
+		// 			}
+		// 			PyPtr<> params = PyObject_GetAttr(origin, Module::State()->STR_PARAMETERS);
+		// 			if (params.IsNull()) {
+		// 				return NULL;
+		// 			}
+
+		// 			ZenoDI_DUMP(origin);
+		// 			ZenoDI_DUMP(params);
+		// 		} else {
+
+		// 		}
+		// 	}
+		// }
+
+
+		return (PyObject*) ValueResolver::New(name, id, defaultValue);
+	}
+
+	static inline PyObject* NewVR(Injectable* injectable, PyObject* name, PyObject* annots, PyObject* defaultValue) {
 		assert(name != NULL && PyUnicode_Check(name));
 		assert(annots == NULL || PyDict_Check(annots));
 
-		PyObject* id = annots == NULL ? NULL : PyDict_GetItem(annots, name); // borrowed ref, no need decref
-		if (id == NULL && PyErr_Occurred()) {
-			PyErr_Clear();
-		}
-
-		return (PyObject*) ValueResolver::New(name, id, defaultValue);
+		PyObject* id = annots == NULL ? NULL : PyDict_GetItem(annots, name); // borrowed ref, no exception
+		return NewVRFromID(injectable, name, id, defaultValue);
 	}
 
 	namespace Collect {
@@ -96,7 +127,7 @@ namespace _injectable {
 					PyObject* defaults = PyFunction_GET_DEFAULTS(func);
 					if (defaults == NULL) {
 						for (int i=offset ; i<code->co_argcount ; ++i) {
-							PyObject* resolver = NewValueResolver(PyTuple_GET_ITEM(code->co_varnames, i), annots, NULL);
+							PyObject* resolver = NewVR(injectable, PyTuple_GET_ITEM(code->co_varnames, i), annots, NULL);
 							if (resolver == NULL) {
 								return false;
 							}
@@ -111,7 +142,7 @@ namespace _injectable {
 							PyObject* def = (code->co_argcount - defcount <= i
 								? PyTuple_GET_ITEM(defaults, defcounter++)
 								: NULL);
-							PyObject* resolver = NewValueResolver(PyTuple_GET_ITEM(code->co_varnames, i), annots, def);
+							PyObject* resolver = NewVR(injectable, PyTuple_GET_ITEM(code->co_varnames, i), annots, def);
 							if (resolver == NULL) {
 								return false;
 							}
@@ -133,7 +164,7 @@ namespace _injectable {
 					if (kwdefaults == NULL) {
 						for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
 							PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i); // borrowed
-							PyPtr<> resolver = NewValueResolver(name, annots, NULL);
+							PyPtr<> resolver = NewVR(injectable, name, annots, NULL);
 							if (resolver.IsNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
 								return false;
 							}
@@ -144,7 +175,7 @@ namespace _injectable {
 						for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
 							PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i); // borrowed
 							PyObject* def = PyDict_GetItem(kwdefaults, name); // borrowed
-							PyPtr<> resolver = NewValueResolver(name, annots, def);
+							PyPtr<> resolver = NewVR(injectable, name, annots, def);
 							if (resolver.IsNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
 								return false;
 							}
@@ -187,7 +218,10 @@ namespace _injectable {
 				while (PyDict_Next(annots, &pos, &key, &value)) {
 					// TODO: skip ClassVar[...]
 					// TODO: maybe default value???
-					PyPtr<> resolver = (PyObject*) ValueResolver::New(key, value, NULL);
+					PyPtr<> resolver = (PyObject*) NewVRFromID(injectable, key, value, NULL);
+					if (resolver.IsNull()) {
+						return false;
+					}
 					if (PyDict_SetItem(attributes, key, resolver) == -1) {
 						return false;
 					}
@@ -200,7 +234,7 @@ namespace _injectable {
 	} /* end namespace Collect */
 
 	template<bool IsList>
-	static inline bool InitOwnScope(Injector* injector, PyObject* provide) {
+	static inline bool InitOwnInjector(Injector* injector, PyObject* provide) {
 		Py_ssize_t len = (IsList ? PyList_GET_SIZE(provide) : PyTuple_GET_SIZE(provide));
 		for (Py_ssize_t i=0; i<len ; i++) {
 			PyObject* item = (IsList ? PyList_GET_ITEM(provide, i) : PyTuple_GET_ITEM(provide, i));
@@ -229,18 +263,18 @@ namespace _injectable {
 		return true;
 	}
 
-	static inline PyObject* CreateOwnScope(PyObject* provide) {
+	static inline Injector* NewOwnInjector(PyObject* provide) {
 		PyPtr<Injector> injector = Injector::New(NULL);
 		if (injector.IsNull()) {
 			return NULL;
 		}
 
 		if (PyList_CheckExact(provide)) {
-			if (!InitOwnScope<true>(injector, provide)) {
+			if (!InitOwnInjector<true>(injector, provide)) {
 				return NULL;
 			}
 		} else if (PyTuple_CheckExact(provide)) {
-			if (!InitOwnScope<false>(injector, provide)) {
+			if (!InitOwnInjector<false>(injector, provide)) {
 				return NULL;
 			}
 		} else {
@@ -248,9 +282,7 @@ namespace _injectable {
 			return NULL;
 		}
 
-		PyObject* scope = injector->scope;
-		Py_INCREF(scope);
-		return scope;
+		return injector.Steal();
 	}
 
 	template<bool UseKwOnly>
@@ -296,6 +328,8 @@ namespace _injectable {
 		assert(injectable->value != NULL);
 
 		if (injectable->value_type == Injectable::ValueType::CLASS) {
+			// TODO: kikukázni a Generic paramétereket az összes base osztályban, és provideolni
+
 			PyTypeObject* type = (PyTypeObject*) injectable->value;
 			if (type->tp_new == NULL) {
 				PyErr_Format(PyExc_TypeError, "cannot create '%.100s' instances", type->tp_name);
@@ -307,9 +341,30 @@ namespace _injectable {
 				return NULL;
 			}
 
-			if (!PyType_IsSubtype(Py_TYPE(obj), type)) {
-        		return obj;
+			// TODO: __origin__ kell a Generic-nél tesztelni
+			// if (!PyType_IsSubtype(Py_TYPE(obj), type)) {
+			// 	return obj.Steal();
+			// }
+
+			if (injectable->attributes) {
+				assert(PyDict_CheckExact(injectable->attributes));
+
+				PyObject* akey;
+				PyObject* avalue;
+				Py_ssize_t apos = 0;
+				while (PyDict_Next(injectable->attributes, &apos, &akey, &avalue)) {
+					assert(ValueResolver::CheckExact(avalue));
+					PyPtr<> value = ValueResolver::Resolve<false>((ValueResolver*) avalue, injector);
+					if (value.IsNull()) {
+						return NULL;
+					}
+					if (PyObject_SetAttr(obj, akey, value) < 0) {
+						return NULL;
+					}
+				}
 			}
+
+
 
 			type = Py_TYPE(obj);
 			if (type->tp_init != NULL) {
@@ -341,7 +396,7 @@ Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyOb
 	self->args = NULL;
 	self->kwargs = NULL;
 	self->attributes = NULL;
-	self->own_scope = NULL;
+	self->own_injector = NULL;
 	self->custom_strategy = NULL;
 	self->strategy = strategy;
 
@@ -381,9 +436,9 @@ Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyOb
 		if (self->value_type == Injectable::ValueType::OTHER || (self->strategy & Strategy::VALUE)) {
 			PyErr_SetString(Module::State()->ExcProvideError, ZenoDI_Err_GotProvideForValue);
 			return NULL;
-		} else {
-			self->own_scope = _injectable::CreateOwnScope(provide);
-			if (self->own_scope == NULL) {
+		} else if (self->own_injector == NULL) {
+			self->own_injector = _injectable::NewOwnInjector(provide);
+			if (self->own_injector == NULL) {
 				return NULL;
 			}
 		}
@@ -429,13 +484,13 @@ PyObject* Injectable::Resolve(Injectable* self, Injector* injector) {
 		return self->value;
 	} else if (self->strategy & Strategy::FACTORY) {
 		if (self->strategy & Strategy::SINGLETON) {
+			// lock begin
 			if (self->strategy & Strategy::GLOBAL) {
-				// lock begin
 				// Module::State()->globals[self] ?= instance
-				// lock end
 			} else {
 				// injector->scope[self] ?= instance
 			}
+			// lock end
 		} else if (self->strategy & Strategy::CUSTOM) {
 			assert(self->custom_strategy != NULL);
 			PyPtr<> args = PyTuple_New(2);
@@ -448,15 +503,19 @@ PyObject* Injectable::Resolve(Injectable* self, Injector* injector) {
 			PyTuple_SET_ITEM(args, 1, (PyObject*) injector);
 			return PyObject_Call(self->custom_strategy, args, NULL);
 		} else {
-			if (self->own_scope) {
-				Injector* scope = Injector::New(injector, self->own_scope);
-				if (scope == NULL) {
+			Py_INCREF(injector);
+			if (self->own_injector) {
+				Injector* ownInjector = Injector::Clone(self->own_injector);
+				if (ownInjector == NULL) {
 					return NULL;
 				}
-				return _injectable::Factory<true>(self, scope);
-			} else {
-				return _injectable::Factory<true>(self, injector);
+				assert(ownInjector->parent == NULL);
+				ownInjector->parent = injector;
+				injector = ownInjector;
 			}
+			PyObject* res = _injectable::Factory<true>(self, injector);
+			Py_DECREF(injector);
+			return res;
 		}
 	} else {
 		PyErr_BadInternalCall();
@@ -483,7 +542,7 @@ void Injectable::__dealloc__(Injectable* self) {
 	Py_CLEAR(self->args);
 	Py_CLEAR(self->kwargs);
 	Py_CLEAR(self->attributes);
-	Py_CLEAR(self->own_scope);
+	Py_CLEAR(self->own_injector);
 	Py_CLEAR(self->custom_strategy);
 	Super::__dealloc__(self);
 }

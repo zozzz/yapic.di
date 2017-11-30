@@ -155,6 +155,34 @@ def test_injector_kwonly():
     assert injector.exec(fn) == "NICE"
 
 
+def test_injector_kwonly_private():
+    injector = Injector()
+
+    class Config(dict):
+        def __init__(self):
+            super().__init__(some_key="OK")
+
+    def get_kwarg(config: Config, *, name, type):
+        assert name == "some_key"
+        assert type is str
+        return config[name]
+
+    def fn(*, some_key: str):
+        assert some_key == "OK"
+        return "NICE"
+
+    injector.provide(Config)
+    injector.provide(fn, provide=[
+        KwOnly(get_kwarg)
+    ])
+
+    assert injector.get(fn) == "NICE"
+
+    with pytest.raises(InjectError) as exc:
+        assert injector.exec(fn) == "NICE"
+    exc.match("Not found suitable value for: <ValueResolver name='some_key', id=str>")
+
+
 def test_injector_kwonly_error():
     injector = Injector()
 
@@ -173,7 +201,7 @@ def test_injector_kwonly_error():
 
     with pytest.raises(InjectError) as exc:
         injector.exec(fn)
-    exc.match("^Not found suitable provider for")
+    exc.match("^Not found suitable value for")
 
 
 def test_injector_kwonly_def_error():

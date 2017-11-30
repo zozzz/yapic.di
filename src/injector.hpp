@@ -34,6 +34,24 @@ Injector* Injector::New(Injector* parent, PyObject* scope) {
 }
 
 
+Injector* Injector::Clone(Injector* self) {
+	assert(Injector::CheckExact(self));
+
+	Injector* result = Injector::Alloc();
+	if (result == NULL) {
+		return NULL;
+	}
+	result->scope = self->scope;
+	result->kwargs = self->kwargs;
+	result->parent = self->parent;
+	Py_XINCREF(result->scope);
+	Py_XINCREF(result->kwargs);
+	Py_XINCREF(result->parent);
+
+	return result;
+}
+
+
 PyObject* Injector::Find(Injector* injector, PyObject* id) {
 	assert(Injector::CheckExact((PyObject*) injector));
 
@@ -139,12 +157,11 @@ PyObject* Injector::provide(Injector* self, PyObject* args, PyObject* kwargs) {
 }
 
 PyObject* Injector::get(Injector* self, PyObject* id) {
-	PyObject* injectable = Injector::Find(self, id);
-	if (injectable == NULL) {
+	PyObject* injectable = Injector::Find(self, id); // borrowed
+	if (injectable == NULL || !Injectable::CheckExact(injectable)) {
 		PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_InjectableNotFound, id);
 		return NULL;
 	}
-	assert(Injectable::CheckExact(injectable));
 	return Injectable::Resolve((Injectable*) injectable, self);
 }
 

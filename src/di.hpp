@@ -29,6 +29,7 @@ public:
 	static PyObject* Provide(Injector* injector, PyObject* id);
 	static PyObject* Provide(Injector* injector, PyObject* id, PyObject* value, PyObject* strategy, PyObject* provide);
 	static void SetParent(Injector* injector, Injector* parent);
+	static Injector* Clone(Injector* injector);
 
 	static PyObject* __new__(PyTypeObject *type, PyObject *args, PyObject *kwargs);
 	static void __dealloc__(Injector* self);
@@ -69,7 +70,7 @@ public:
 	PyObject* args; 		// tuple[ValueResolver]
 	PyObject* kwargs;		// dict[str, ValueResolver]
 	PyObject* attributes;	// dict[str, ValueResolver]
-	PyObject* own_scope;	// dict[id, ...]
+	Injector* own_injector;
 	PyObject* custom_strategy;
 
 	ValueType value_type;
@@ -154,6 +155,9 @@ public:
 	ModuleVar STR_INIT;
 	ModuleVar STR_KWA_NAME;
 	ModuleVar STR_KWA_TYPE;
+	ModuleVar STR_ARGS;
+	ModuleVar STR_PARAMETERS;
+	ModuleVar STR_ORIGIN;
 
 	ModuleVar FACTORY;
 	ModuleVar VALUE;
@@ -174,6 +178,9 @@ public:
 		state->STR_INIT = "__init__";
 		state->STR_KWA_NAME = "name";
 		state->STR_KWA_TYPE = "type";
+		state->STR_ARGS = "__args__";
+		state->STR_PARAMETERS = "__parameters__";
+		state->STR_ORIGIN = "__origin__";
 
 		state->VALUE.Value(Injectable::Strategy::VALUE).Export("VALUE");
 		state->FACTORY.Value(Injectable::Strategy::FACTORY).Export("FACTORY");

@@ -13,7 +13,7 @@
 				"setup.py",
 				"test",
 				"-f",
-				"./tests/test_injector.py"
+				"./tests/test_generic.py"
 			],
 			"stopAtEntry": false,
 			"cwd": "${workspaceFolder}",
