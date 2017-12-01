@@ -1,6 +1,7 @@
 #ifndef E59C6756_5133_C8FB_12AD_80BD2DE30129
 #define E59C6756_5133_C8FB_12AD_80BD2DE30129
 
+#include <yapic/string-builder.hpp>
 #include "./di.hpp"
 
 namespace ZenoDI {
@@ -156,29 +157,51 @@ void ValueResolver::__dealloc__(ValueResolver* self) {
 
 
 PyObject* ValueResolver::__repr__(ValueResolver* self) {
-	PyObject* idname;
-	if (self->id == NULL) {
-		idname = Py_None;
-		Py_INCREF(idname);
-	} else {
-		idname = PyObject_GetAttr(self->id, Module::State()->STR_QUALNAME);
-		if (idname == NULL) {
-			PyErr_Clear();
-			Py_INCREF(self->id);
-			idname = self->id;
+	Yapic::UnicodeBuilder<256> builder;
+	if (!builder.AppendStringSafe("<ValueResolver")) {
+		return NULL;
+	}
+
+	if (self->name) {
+		if (!builder.AppendStringSafe(" name=")) {
+			return NULL;
+		}
+		if (!builder.AppendStringSafe(self->name)) {
+			return NULL;
 		}
 	}
 
-	PyObject* repr;
-	if (self->default_value) {
-		repr = PyUnicode_FromFormat("<ValueResolver name=%R, id=%S, default=%R>",
-			self->name, idname, self->default_value);
-	} else {
-		repr = PyUnicode_FromFormat("<ValueResolver name=%R, id=%S>",
-			self->name, idname);
+	if (self->id) {
+		if (!builder.AppendStringSafe(" id=")) {
+			return NULL;
+		}
+		PyPtr<> repr = PyObject_Repr(self->id);
+		if (repr.IsNull()) {
+			return NULL;
+		}
+		if (!builder.AppendStringSafe(repr)) {
+			return NULL;
+		}
 	}
-	Py_DECREF(idname);
-	return repr;
+
+	if (self->default_value) {
+		if (!builder.AppendStringSafe(" default=")) {
+			return NULL;
+		}
+		PyPtr<> repr = PyObject_Repr(self->default_value);
+		if (repr.IsNull()) {
+			return NULL;
+		}
+		if (!builder.AppendStringSafe(repr)) {
+			return NULL;
+		}
+	}
+
+	if (!builder.AppendStringSafe(">")) {
+		return NULL;
+	}
+
+	return builder.ToPython();
 }
 
 } // end namespace ZenoDI

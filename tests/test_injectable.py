@@ -1,5 +1,34 @@
 import pytest
-from zeno.di import Injector, BoundInjectable
+from zeno.di import Injector, BoundInjectable, KwOnly
+
+
+def test_injectable_call1():
+    injector = Injector()
+
+    def kw(x: "Y", *, name, type):
+        pass
+
+    class C:
+        pass
+
+    class B:
+        pass
+
+    class A:
+        c: C
+        b: B
+
+        def __init__(self, c: C, d=1, *, kwonly=None):
+            pass
+
+    injectable = injector.provide(A, provide=[
+        KwOnly(kw),
+        C,
+        B
+    ])
+    print(injectable)
+    exit(0)
+    assert isinstance(injectable(injector), A)
 
 
 def test_injectable_call():

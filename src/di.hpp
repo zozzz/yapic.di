@@ -10,6 +10,7 @@
 #include <yapic/module.hpp>
 #include <yapic/type.hpp>
 #include <yapic/pyptr.hpp>
+#include <yapic/string-builder.hpp>
 
 #include "./errors.hpp"
 
@@ -52,6 +53,8 @@ public:
 
 class Injectable: public Yapic::Type<Injectable, Yapic::Object> {
 public:
+	using UnicodeBuilder = Yapic::UnicodeBuilder<1024>;
+
 	enum ValueType {
 		CLASS = 1,
 		FUNCTION = 2,
@@ -82,9 +85,11 @@ public:
 	static Injectable* New(PyObject* value, Strategy strategy, PyObject* provide);
 	static Injectable* New(PyObject* value, PyObject* strategy, PyObject* provide);
 	static PyObject* Resolve(Injectable* self, Injector* injector);
+	static bool ToString(Injectable* self, UnicodeBuilder* builder, int level);
 	// static PyObject* Exec(Injectable* self, Injector* injector);
 	// egy injectort vár paraméternek, és így vissza tudja adni azt, amit kell
 	static PyObject* __call__(Injectable* self, PyObject* args, PyObject** kwargs);
+	static PyObject* __repr__(Injectable* self);
 	static void __dealloc__(Injectable* self);
 	// visszaad egy bounded injectable objektumot, aminek már nem kell megadni
 	// az injector objektumot, akkor ha meghívjuk

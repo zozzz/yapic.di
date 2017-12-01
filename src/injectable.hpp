@@ -206,7 +206,10 @@ namespace _injectable {
 					}
 				}
 
-				injectable->attributes = attributes.Steal();
+				if (PyDict_Size(attributes) > 0) {
+					injectable->attributes = attributes.Steal();
+				}
+
 				return true;
 			}
 		} /* end namespace Type */
@@ -359,7 +362,7 @@ namespace _injectable {
 			return obj.Steal();
 		} else {
 			assert(injectable->value_type == Injectable::ValueType::FUNCTION);
-			#if Py_DEBUG
+			#ifdef Py_DEBUG
 				return PyObject_Call(tmp, args, kwargs);
 			#else
 				return Py_TYPE(tmp)->tp_call(tmp, args, kwargs);
@@ -514,15 +517,6 @@ PyObject* Injectable::__call__(Injectable* self, PyObject* args, PyObject** kwar
 	return NULL;
 }
 
-void Injectable::__dealloc__(Injectable* self) {
-	Py_CLEAR(self->value);
-	Py_CLEAR(self->args);
-	Py_CLEAR(self->kwargs);
-	Py_CLEAR(self->attributes);
-	Py_CLEAR(self->own_injector);
-	Py_CLEAR(self->custom_strategy);
-	Super::__dealloc__(self);
-}
 
 PyObject* Injectable::bind(Injectable* self, Injector* injector) {
 	if (Injector::CheckExact(injector)) {
@@ -531,6 +525,187 @@ PyObject* Injectable::bind(Injectable* self, Injector* injector) {
 		PyErr_SetString(PyExc_TypeError, ZenoDI_Err_OneInjectorArg);
 		return NULL;
 	}
+}
+
+
+#define Injectable_AppendIndent(level) { \
+		int __l=(level)*4;\
+		if (!builder->EnsureSize(__l)) { \
+			return false; \
+		} \
+		for (int i=0 ; i<__l ; ++i) { \
+			builder->AppendAscii(' '); \
+		} \
+	}
+
+#define Injectable_AppendString(x) \
+	if (!builder->AppendStringSafe(x)) { \
+		return false; \
+	}
+
+bool Injectable::ToString(Injectable* self, UnicodeBuilder* builder, int level) {
+	Injectable_AppendIndent(level);
+	Injectable_AppendString("<Injectable");
+
+	if (self->value_type == Injectable::ValueType::OTHER) {
+		if (!builder->AppendStringSafe(" VALUE ")) {
+			return false;
+		}
+		PyPtr<> repr = PyObject_Repr(self->value);
+		Injectable_AppendString(repr);
+		Injectable_AppendString(">");
+		return true;
+	}
+
+	if (self->value_type == Injectable::ValueType::CLASS) {
+		Injectable_AppendString(" CLASS ");
+		PyPtr<> repr = PyObject_Repr(self->value);
+		if (repr.IsNull()) {
+			return false;
+		}
+		const char* str = (const char*) PyUnicode_1BYTE_DATA(repr.As<PyASCIIObject>());
+		if (!builder->AppendStringSafe(str + 7, PyUnicode_GET_LENGTH(repr.As<PyASCIIObject>()) - 7 - 1)) {
+			return false;
+		}
+		if (self->attributes) {
+			PyObject* k;
+			PyObject* v;
+			Py_ssize_t p=0;
+
+			Injectable_AppendString("\n");
+			Injectable_AppendIndent(level + 1);
+			Injectable_AppendString("Attributes:");
+
+			while (PyDict_Next(self->attributes, &p, &k, &v)) {
+				Injectable_AppendString("\n");
+				Injectable_AppendIndent(level + 2);
+				if (PyUnicode_CheckExact(k)) {
+					if (!builder->AppendStringSafe(k)) {
+						return false;
+					}
+				} else {
+					Injectable_AppendString("<NOT STRING>");
+				}
+				Injectable_AppendString(": ");
+				PyPtr<> vr = PyObject_Repr(v);
+				if (vr.IsNull()) {
+					return false;
+				}
+				Injectable_AppendString(vr);
+			}
+		}
+		if (self->args || self->kwargs) {
+			Injectable_AppendString("\n");
+			Injectable_AppendIndent(level + 1);
+			Injectable_AppendString("__init__:");
+		}
+	} else if (self->value_type == Injectable::ValueType::FUNCTION) {
+		if (!builder->AppendStringSafe(" FUNCTION ")) {
+			return false;
+		}
+		PyPtr<> repr = PyObject_Repr(self->value);
+		if (repr.IsNull()) {
+			return false;
+		}
+		Injectable_AppendString(repr);
+		if (self->args || self->kwargs) {
+			Injectable_AppendString("\n");
+			Injectable_AppendIndent(level + 1);
+			Injectable_AppendString("Params:");
+		}
+	}
+
+	if (self->args) {
+		for (Py_ssize_t i=0 ; i<PyTuple_GET_SIZE(self->args) ; ++i) {
+			Injectable_AppendString("\n");
+			Injectable_AppendIndent(level + 2);
+			PyPtr<> repr = PyObject_Repr(PyTuple_GET_ITEM(self->args, i));
+			if (repr.IsNull()) {
+				return NULL;
+			}
+			Injectable_AppendString(repr);
+		}
+	}
+
+	if (self->kwargs) {
+		Injectable_AppendString("\n");
+		Injectable_AppendIndent(level + 2);
+		Injectable_AppendString("KwOnly:");
+		PyObject* k;
+		PyObject* v;
+		Py_ssize_t p=0;
+		while (PyDict_Next(self->kwargs, &p, &k, &v)) {
+			Injectable_AppendString("\n");
+			Injectable_AppendIndent(level + 3);
+			Injectable_AppendString(k);
+			Injectable_AppendString(": ");
+			PyPtr<> repr = PyObject_Repr(v);
+			if (repr.IsNull()) {
+				return NULL;
+			}
+			Injectable_AppendString(repr);
+		}
+	}
+
+	if (self->own_injector) {
+		Injectable_AppendString("\n");
+		Injectable_AppendIndent(level + 1);
+		Injectable_AppendString("OwnInjector:");
+
+		if (self->own_injector->kwargs) {
+			Injectable_AppendString("\n");
+			Injectable_AppendIndent(level + 2);
+			Injectable_AppendString("KwOnly:");
+			PyObject* kwonly = self->own_injector->kwargs;
+			for (Py_ssize_t i=0 ; i<PyList_GET_SIZE(kwonly) ; ++i) {
+				Injectable_AppendString("\n");
+				KwOnly* kwonlyItem = (KwOnly*) PyList_GET_ITEM(kwonly, i);
+				assert(Injectable::CheckExact(kwonlyItem->getter));
+				Injectable::ToString(kwonlyItem->getter, builder, level + 3);
+			}
+		}
+
+		if (self->own_injector->scope && PyDict_Size(self->own_injector->scope) > 0) {
+			Injectable_AppendString("\n");
+			Injectable_AppendIndent(level + 2);
+			Injectable_AppendString("Injectables:");
+			PyObject* k;
+			PyObject* v;
+			Py_ssize_t p=0;
+			while (PyDict_Next(self->own_injector->scope, &p, &k, &v)) {
+				if (Injectable::CheckExact(v)) {
+					Injectable_AppendString("\n");
+					if (!Injectable::ToString((Injectable*) v, builder, level + 3)) {
+						return false;
+					}
+				}
+			}
+		}
+	}
+
+	Injectable_AppendString(">");
+
+	return true;
+}
+
+
+PyObject* Injectable::__repr__(Injectable* self) {
+	UnicodeBuilder builder;
+	if (Injectable::ToString(self, &builder, 0)) {
+		return builder.ToPython();
+	}
+	return NULL;
+}
+
+
+void Injectable::__dealloc__(Injectable* self) {
+	Py_CLEAR(self->value);
+	Py_CLEAR(self->args);
+	Py_CLEAR(self->kwargs);
+	Py_CLEAR(self->attributes);
+	Py_CLEAR(self->own_injector);
+	Py_CLEAR(self->custom_strategy);
+	Super::__dealloc__(self);
 }
 
 
