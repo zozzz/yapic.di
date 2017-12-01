@@ -157,7 +157,7 @@ public:
 	ModuleVar STR_KWA_TYPE;
 	ModuleVar STR_ARGS;
 	ModuleVar STR_PARAMETERS;
-	ModuleVar STR_ORIGIN;
+	// ModuleVar STR_ORIGIN;
 
 	ModuleVar FACTORY;
 	ModuleVar VALUE;
@@ -180,7 +180,7 @@ public:
 		state->STR_KWA_TYPE = "type";
 		state->STR_ARGS = "__args__";
 		state->STR_PARAMETERS = "__parameters__";
-		state->STR_ORIGIN = "__origin__";
+		// state->STR_ORIGIN = "__origin__";
 
 		state->VALUE.Value(Injectable::Strategy::VALUE).Export("VALUE");
 		state->FACTORY.Value(Injectable::Strategy::FACTORY).Export("FACTORY");

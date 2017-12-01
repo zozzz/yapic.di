@@ -56,3 +56,17 @@ def test_own_provide(benchmark):
     injector.provide(fn, provide=[A])
 
     benchmark.pedantic(lambda i: injector.get(i), args=(fn,), iterations=ITERS, rounds=100)
+
+
+def test_cached_provide(benchmark):
+    class A:
+        pass
+
+    def fn(a: A):
+        return a
+
+    injector = Injector()
+    injector.provide(A)
+    factory = injector.provide(fn)
+
+    benchmark.pedantic(lambda i: factory(i), args=(injector,), iterations=ITERS, rounds=100)
