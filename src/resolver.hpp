@@ -94,7 +94,14 @@ PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector, Inject
 		result = _resolver::ResolveByType(injector, injector, type);
 		ValueResulver_ReturnIfOk(result)
 
-		// if type == Injector::Type() return (own_injector || injector)::Clone()
+		if ((PyTypeObject*) type == const_cast<PyTypeObject*>(Injector::PyType())) {
+			if (own_injector != NULL) {
+				return (PyObject*) Injector::Clone(own_injector, injector);
+			} else {
+				Py_INCREF(injector);
+				return (PyObject*) injector;
+			}
+		}
 	}
 
 	if (self->default_value != NULL) {

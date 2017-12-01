@@ -155,7 +155,7 @@ def test_injector_kwonly():
     assert injector.exec(fn) == "NICE"
 
 
-def test_injector_kwonly_private():
+def test_injector_own_kwonly():
     injector = Injector()
 
     class Config(dict):
@@ -181,6 +181,62 @@ def test_injector_kwonly_private():
     with pytest.raises(InjectError) as exc:
         assert injector.exec(fn) == "NICE"
     exc.match("Not found suitable value for: <ValueResolver name='some_key', id=str>")
+
+
+def test_injector_inject_self():
+    injector = Injector()
+
+    class A:
+        inj: Injector
+
+        def __init__(self):
+            assert isinstance(self.inj, Injector)
+            assert isinstance(self.inj.get(B), B)
+
+    class B:
+        pass
+
+    injector.provide(A)
+    injector.provide(B)
+
+    assert isinstance(injector.get(A), A)
+
+
+def test_injector_inject_self2():
+    injector = Injector()
+
+    class A:
+        inj: Injector
+
+        def __init__(self):
+            assert isinstance(self.inj, Injector)
+            assert isinstance(self.inj.get(B), B)
+            assert isinstance(self.inj.get(C), C)
+            assert isinstance(self.inj.get(D), D)
+            assert isinstance(self.inj.get(D).c, C)
+
+    class B:
+        pass
+
+    class C:
+        pass
+
+    class D:
+        c: C
+
+    injector.provide(A, provide=[C])
+    injector.provide(B)
+    injector.provide(D)
+
+    assert isinstance(injector.get(A), A)
+
+    with pytest.raises(InjectError) as exc:
+        injector.get(C)
+    exc.match("Not found suitable value for: <class 'test_injector.test_injector_inject_self2.<locals>.C'>")
+
+    with pytest.raises(InjectError) as exc:
+        injector.get(D)
+    exc.match("Not found suitable value for: <ValueResolver name='c', id=test_injector_inject_self2.<locals>.C>")
 
 
 def test_injector_kwonly_error():

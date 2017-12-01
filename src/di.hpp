@@ -30,6 +30,7 @@ public:
 	static PyObject* Provide(Injector* injector, PyObject* id, PyObject* value, PyObject* strategy, PyObject* provide);
 	static void SetParent(Injector* injector, Injector* parent);
 	static Injector* Clone(Injector* injector);
+	static Injector* Clone(Injector* injector, Injector* parent);
 
 	static PyObject* __new__(PyTypeObject *type, PyObject *args, PyObject *kwargs);
 	static void __dealloc__(Injector* self);

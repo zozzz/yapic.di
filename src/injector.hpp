@@ -36,6 +36,12 @@ Injector* Injector::New(Injector* parent, PyObject* scope) {
 
 Injector* Injector::Clone(Injector* self) {
 	assert(Injector::CheckExact(self));
+	return Injector::Clone(self, self->parent);
+}
+
+
+Injector* Injector::Clone(Injector* self, Injector* parent) {
+	assert(Injector::CheckExact(self));
 
 	Injector* result = Injector::Alloc();
 	if (result == NULL) {
@@ -43,10 +49,10 @@ Injector* Injector::Clone(Injector* self) {
 	}
 	result->scope = self->scope;
 	result->kwargs = self->kwargs;
-	result->parent = self->parent;
+	result->parent = parent;
 	Py_XINCREF(result->scope);
 	Py_XINCREF(result->kwargs);
-	Py_XINCREF(result->parent);
+	Py_XINCREF(parent);
 
 	return result;
 }

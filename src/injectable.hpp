@@ -7,7 +7,7 @@
 namespace ZenoDI {
 
 namespace _injectable {
-	static inline PyObject* NewVRFromID(Injectable* injectable, PyObject* name, PyObject* id, PyObject* defaultValue, PyObject* aliases) {
+	static inline PyObject* NewVRFromID(PyObject* name, PyObject* id, PyObject* defaultValue, PyObject* aliases) {
 		if (aliases != NULL) {
 			PyObject* alias = PyDict_GetItem(aliases, id); // borrowed, no exception
 			if (alias != NULL) {
@@ -17,12 +17,12 @@ namespace _injectable {
 		return (PyObject*) ValueResolver::New(name, id, defaultValue);
 	}
 
-	static inline PyObject* NewVR(Injectable* injectable, PyObject* name, PyObject* annots, PyObject* defaultValue, PyObject* aliases) {
+	static inline PyObject* NewVR(PyObject* name, PyObject* annots, PyObject* defaultValue, PyObject* aliases) {
 		assert(name != NULL && PyUnicode_Check(name));
 		assert(annots == NULL || PyDict_Check(annots));
 
 		PyObject* id = annots == NULL ? NULL : PyDict_GetItem(annots, name); // borrowed ref, no exception
-		return NewVRFromID(injectable, name, id, defaultValue, aliases);
+		return NewVRFromID(name, id, defaultValue, aliases);
 	}
 
 	namespace Collect {
@@ -89,6 +89,7 @@ namespace _injectable {
 					assert(PyDict_CheckExact(annots));
 				}
 
+				PyObject* defaults;
 				int argcount = code->co_argcount - offset;
 				assert(argcount >= 0);
 				if (argcount) {
@@ -100,10 +101,10 @@ namespace _injectable {
 						return false;
 					}
 
-					PyObject* defaults = PyFunction_GET_DEFAULTS(func);
+					defaults = PyFunction_GET_DEFAULTS(func);
 					if (defaults == NULL) {
 						for (int i=offset ; i<code->co_argcount ; ++i) {
-							PyObject* resolver = NewVR(injectable, PyTuple_GET_ITEM(code->co_varnames, i), annots, NULL, aliases);
+							PyObject* resolver = NewVR(PyTuple_GET_ITEM(code->co_varnames, i), annots, NULL, aliases);
 							if (resolver == NULL) {
 								return false;
 							}
@@ -118,7 +119,7 @@ namespace _injectable {
 							PyObject* def = (code->co_argcount - defcount <= i
 								? PyTuple_GET_ITEM(defaults, defcounter++)
 								: NULL);
-							PyObject* resolver = NewVR(injectable, PyTuple_GET_ITEM(code->co_varnames, i), annots, def, aliases);
+							PyObject* resolver = NewVR(PyTuple_GET_ITEM(code->co_varnames, i), annots, def, aliases);
 							if (resolver == NULL) {
 								return false;
 							}
@@ -136,22 +137,22 @@ namespace _injectable {
 						return false;
 					}
 
-					PyObject* kwdefaults = PyFunction_GET_KW_DEFAULTS(func);
-					if (kwdefaults == NULL) {
+					defaults = PyFunction_GET_KW_DEFAULTS(func);
+					if (defaults == NULL) {
 						for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
 							PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i); // borrowed
-							PyPtr<> resolver = NewVR(injectable, name, annots, NULL, aliases);
+							PyPtr<> resolver = NewVR(name, annots, NULL, aliases);
 							if (resolver.IsNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
 								return false;
 							}
 						}
 					} else {
-						assert(PyDict_CheckExact(kwdefaults));
+						assert(PyDict_CheckExact(defaults));
 
 						for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
 							PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i); // borrowed
-							PyObject* def = PyDict_GetItem(kwdefaults, name); // borrowed
-							PyPtr<> resolver = NewVR(injectable, name, annots, def, aliases);
+							PyObject* def = PyDict_GetItem(defaults, name); // borrowed
+							PyPtr<> resolver = NewVR(name, annots, def, aliases);
 							if (resolver.IsNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
 								return false;
 							}
@@ -195,7 +196,7 @@ namespace _injectable {
 					while (PyDict_Next(annots, &pos, &key, &value)) {
 						// TODO: skip ClassVar[...]
 						// TODO: maybe default value???
-						PyPtr<> resolver = (PyObject*) NewVRFromID(injectable, key, value, NULL, typeAliases);
+						PyPtr<> resolver = (PyObject*) NewVRFromID(key, value, NULL, typeAliases);
 						if (resolver.IsNull()) {
 							return false;
 						}
@@ -506,7 +507,7 @@ PyObject* Injectable::__call__(Injectable* self, PyObject* args, PyObject** kwar
 		if (Injector::CheckExact(injector)) {
 			return Injectable::Resolve(self, (Injector*) injector);
 		} else {
-			PyErr_BadArgument();
+			PyErr_SetString(PyExc_TypeError, ZenoDI_Err_OneInjectorArg);
 			return NULL;
 		}
 	}
@@ -527,7 +528,7 @@ PyObject* Injectable::bind(Injectable* self, Injector* injector) {
 	if (Injector::CheckExact(injector)) {
 		return (PyObject*) BoundInjectable::New(self, injector);
 	} else {
-		PyErr_BadArgument();
+		PyErr_SetString(PyExc_TypeError, ZenoDI_Err_OneInjectorArg);
 		return NULL;
 	}
 }
@@ -554,7 +555,10 @@ BoundInjectable* BoundInjectable::New(Injectable* injectable, Injector* injector
 
 
 PyObject* BoundInjectable::__call__(BoundInjectable* self, PyObject* args, PyObject** kwargs) {
-	//TODO: ha vannak paraméterek, akkor hiba
+	if (PyTuple_GET_SIZE(args) > 0) {
+		PyErr_Format(PyExc_TypeError, "__call__ expected 0 arguments, got %i", PyTuple_GET_SIZE(args));
+		return NULL;
+	}
 	return Injectable::Resolve(self->injectable, self->injector);
 }
 
