@@ -2,6 +2,7 @@ import pytest
 from zeno.di import Injector, BoundInjectable, KwOnly
 
 
+@pytest.mark.skip("Onyl for __repr__ test")
 def test_injectable_call1():
     injector = Injector()
 

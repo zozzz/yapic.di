@@ -119,10 +119,11 @@ public:
 	PyObject* id;
 	PyObject* name;
 	PyObject* default_value;
+	PyObject* globals;
 
 	Yapic_PrivateNew;
 
-	static ValueResolver* New(PyObject* name, PyObject* id, PyObject* default_value);
+	static ValueResolver* New(PyObject* name, PyObject* id, PyObject* default_value, PyObject* globals);
 	template<bool UseKwOnly>
 	static PyObject* Resolve(ValueResolver* self, Injector* injector, Injector* own_injector);
 	static void SetId(ValueResolver* self, PyObject* id);
@@ -163,7 +164,7 @@ public:
 	ModuleVar STR_KWA_TYPE;
 	ModuleVar STR_ARGS;
 	ModuleVar STR_PARAMETERS;
-	// ModuleVar STR_ORIGIN;
+	ModuleVar STR_MODULE;
 
 	ModuleVar FACTORY;
 	ModuleVar VALUE;
@@ -186,7 +187,7 @@ public:
 		state->STR_KWA_TYPE = "type";
 		state->STR_ARGS = "__args__";
 		state->STR_PARAMETERS = "__parameters__";
-		// state->STR_ORIGIN = "__origin__";
+		state->STR_MODULE = "__module__";
 
 		state->VALUE.Value(Injectable::Strategy::VALUE).Export("VALUE");
 		state->FACTORY.Value(Injectable::Strategy::FACTORY).Export("FACTORY");

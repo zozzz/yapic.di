@@ -7,22 +7,22 @@
 namespace ZenoDI {
 
 namespace _injectable {
-	static inline PyObject* NewVRFromID(PyObject* name, PyObject* id, PyObject* defaultValue, PyObject* aliases) {
+	static inline PyObject* NewVRFromID(PyObject* name, PyObject* id, PyObject* def, PyObject* aliases, PyObject* g) {
 		if (aliases != NULL) {
 			PyObject* alias = PyDict_GetItem(aliases, id); // borrowed, no exception
 			if (alias != NULL) {
 				id = alias;
 			}
 		}
-		return (PyObject*) ValueResolver::New(name, id, defaultValue);
+		return (PyObject*) ValueResolver::New(name, id, def, g);
 	}
 
-	static inline PyObject* NewVR(PyObject* name, PyObject* annots, PyObject* defaultValue, PyObject* aliases) {
+	static inline PyObject* NewVR(PyObject* name, PyObject* annots, PyObject* def, PyObject* aliases, PyObject* g) {
 		assert(name != NULL && PyUnicode_Check(name));
 		assert(annots == NULL || PyDict_Check(annots));
 
 		PyObject* id = annots == NULL ? NULL : PyDict_GetItem(annots, name); // borrowed ref, no exception
-		return NewVRFromID(name, id, defaultValue, aliases);
+		return NewVRFromID(name, id, def, aliases, g);
 	}
 
 	namespace Collect {
@@ -89,6 +89,11 @@ namespace _injectable {
 					assert(PyDict_CheckExact(annots));
 				}
 
+				PyObject* globals = PyFunction_GET_GLOBALS(func);
+				if (globals != NULL) {
+					assert(PyDict_CheckExact(globals));
+				}
+
 				PyObject* defaults;
 				int argcount = code->co_argcount - offset;
 				assert(argcount >= 0);
@@ -104,7 +109,8 @@ namespace _injectable {
 					defaults = PyFunction_GET_DEFAULTS(func);
 					if (defaults == NULL) {
 						for (int i=offset ; i<code->co_argcount ; ++i) {
-							PyObject* resolver = NewVR(PyTuple_GET_ITEM(code->co_varnames, i), annots, NULL, aliases);
+							PyObject* resolver = NewVR(
+								PyTuple_GET_ITEM(code->co_varnames, i), annots, NULL, aliases, globals);
 							if (resolver == NULL) {
 								return false;
 							}
@@ -119,7 +125,8 @@ namespace _injectable {
 							PyObject* def = (code->co_argcount - defcount <= i
 								? PyTuple_GET_ITEM(defaults, defcounter++)
 								: NULL);
-							PyObject* resolver = NewVR(PyTuple_GET_ITEM(code->co_varnames, i), annots, def, aliases);
+							PyObject* resolver = NewVR(
+								PyTuple_GET_ITEM(code->co_varnames, i), annots, def, aliases, globals);
 							if (resolver == NULL) {
 								return false;
 							}
@@ -141,7 +148,7 @@ namespace _injectable {
 					if (defaults == NULL) {
 						for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
 							PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i); // borrowed
-							PyPtr<> resolver = NewVR(name, annots, NULL, aliases);
+							PyPtr<> resolver = NewVR(name, annots, NULL, aliases, globals);
 							if (resolver.IsNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
 								return false;
 							}
@@ -152,7 +159,7 @@ namespace _injectable {
 						for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
 							PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i); // borrowed
 							PyObject* def = PyDict_GetItem(defaults, name); // borrowed
-							PyPtr<> resolver = NewVR(name, annots, def, aliases);
+							PyPtr<> resolver = NewVR(name, annots, def, aliases, globals);
 							if (resolver.IsNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
 								return false;
 							}
@@ -178,6 +185,7 @@ namespace _injectable {
 				assert(PyTuple_CheckExact(mro));
 
 				PyObject* str_annots = Module::State()->STR_ANNOTATIONS;
+				PyObject* str_module = Module::State()->STR_MODULE;
 				for (Py_ssize_t i=PyTuple_GET_SIZE(mro) - 1; i>=0; i--) {
 					PyObject* base = PyTuple_GET_ITEM(mro, i);
 					assert(base != NULL);
@@ -189,6 +197,20 @@ namespace _injectable {
 					}
 					assert(PyDict_CheckExact(annots));
 
+					if (PyDict_Size(annots) == 0) {
+						continue;
+					}
+
+					// TODO: found better ide to get class definier scope
+					PyPtr<> module = PyObject_GetAttr(base, str_module);
+					if (module.IsNull()) {
+						return false;
+					}
+					module = ImportModule(module);
+					if (module.IsNull()) {
+						return false;
+					}
+
 					PyObject* key;
 					PyObject* value;
 					Py_ssize_t pos = 0;
@@ -196,7 +218,7 @@ namespace _injectable {
 					while (PyDict_Next(annots, &pos, &key, &value)) {
 						// TODO: skip ClassVar[...]
 						// TODO: maybe default value???
-						PyPtr<> resolver = (PyObject*) NewVRFromID(key, value, NULL, typeAliases);
+						PyPtr<> resolver = (PyObject*) NewVRFromID(key, value, NULL, typeAliases, module);
 						if (resolver.IsNull()) {
 							return false;
 						}
