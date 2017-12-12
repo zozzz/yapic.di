@@ -25,7 +25,6 @@ public:
 	Injector* parent;
 
 	static Injector* New(Injector* parent);
-	static Injector* New(Injector* parent, PyObject* scope);
 	static PyObject* Find(Injector* injector, PyObject* id);
 	static PyObject* Provide(Injector* injector, PyObject* id);
 	static PyObject* Provide(Injector* injector, PyObject* id, PyObject* value, PyObject* strategy, PyObject* provide);

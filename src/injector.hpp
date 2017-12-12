@@ -6,17 +6,12 @@
 namespace ZenoDI {
 
 Injector* Injector::New(Injector* parent) {
-	PyObject* scope = PyDict_New();
-	if (scope == NULL) {
-		return NULL;
-	}
-	return Injector::New(parent, scope);
-}
-
-
-Injector* Injector::New(Injector* parent, PyObject* scope) {
 	PyPtr<Injector> self = Injector::Alloc();
 	if (self.IsNull()) {
+		return NULL;
+	}
+
+	if ((self->scope = PyDict_New()) == NULL) {
 		return NULL;
 	}
 
@@ -25,10 +20,6 @@ Injector* Injector::New(Injector* parent, PyObject* scope) {
 		Py_INCREF(parent);
 		self->parent = parent;
 	}
-
-	assert(scope != NULL);
-	assert(PyDict_CheckExact(scope));
-	self->scope = scope;
 
 	return self.Steal();
 }
