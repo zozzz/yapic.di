@@ -1,35 +1,47 @@
 #ifndef E59C6756_5133_C8FB_12AD_80BD2DE30129
 #define E59C6756_5133_C8FB_12AD_80BD2DE30129
 
+#include <yapic/string-builder.hpp>
+#include "./di.hpp"
+#include "./util.hpp"
+
+#define ValueResulver_ReturnIfOk(v) \
+	if (v != NULL) { \
+		return v; \
+	} else if (PyErr_Occurred()) { \
+		return NULL;\
+	} \
+
 namespace ZenoDI {
 	namespace _resolver {
-		static inline PyObject* ResolveByType(Injector* injector, PyObject* type) {
-			Provider* provider = (Provider*) Injector::Find(injector, type);
-			if (provider == NULL) {
-				return NULL;
-			} else if (Provider::CheckExact(provider)) {
-				return Provider::Resolve(provider, injector);
-			} else {
-				return NULL;
-			}
-		}
-
-		static inline PyObject* ResolveByKw(Injector* injector, PyObject* name, PyObject* type) {
+		static inline PyObject* ResolveByType(Injector* injector, Injector* resolve, PyObject* type) {
 			assert(Injector::CheckExact(injector));
 
 			do {
-				if (injector->kwargs) {
-					assert(PyList_CheckExact(injector->kwargs));
-					PyObject* kwargs = injector->kwargs;
+				PyObject* result = PyDict_GetItem(injector->scope, type);
+				if (result != NULL && Injectable::CheckExact(result)) {
+					return Injectable::Resolve((Injectable*) result, resolve);
+				}
+			} while (injector = injector->parent);
+			return NULL;
+		}
+
+		static inline PyObject* ResolveByKw(Injector* injector, Injector* resolve, PyObject* name, PyObject* type) {
+			assert(Injector::CheckExact(injector));
+
+			do {
+				PyObject* kwargs = injector->kwargs;
+				if (kwargs != NULL) {
+					assert(PyList_CheckExact(kwargs));
 
 					for (Py_ssize_t i=0 ; i < PyList_GET_SIZE(kwargs); i++) {
 						KwOnly* kw = (KwOnly*) PyList_GET_ITEM(kwargs, i);
 						assert(KwOnly::CheckExact(kw));
-						PyObject* val = KwOnly::Resolve(kw, injector, name, type);
-						if (val != NULL) {
-							return val;
-						} else if (PyErr_Occurred()) {
+						PyObject* val = KwOnly::Resolve(kw, resolve, name, type);
+						if (val == NULL && PyErr_Occurred()) {
 							return NULL;
+						} else {
+							return val;
 						}
 					}
 				}
@@ -37,59 +49,96 @@ namespace ZenoDI {
 
 			return NULL;
 		}
+
+		template<bool AllowForwardRef>
+		static inline PyObject* GetByType(ValueResolver* self, Injector* injector, Injector* own_injector, PyObject* type) {
+			PyObject* result;
+
+			if (own_injector != NULL) {
+				result = _resolver::ResolveByType(own_injector, injector, type);
+				ValueResulver_ReturnIfOk(result)
+			}
+			result = _resolver::ResolveByType(injector, injector, type);
+			ValueResulver_ReturnIfOk(result)
+
+			// maybe forwardref...
+			if (AllowForwardRef) {
+				PyObject* globals = self->globals;
+				if (PyUnicode_CheckExact(type) && globals != NULL) {
+					PyObject* fwType = ResolveNameFromGlobals(globals, type);
+					if (fwType != NULL) {
+						result = GetByType<false>(self, injector, own_injector, fwType);
+						Py_DECREF(fwType);
+						ValueResulver_ReturnIfOk(result)
+					} else if (PyErr_Occurred()) {
+						PyErr_Clear();
+					}
+				}
+			}
+
+			// get Injector
+			if ((PyTypeObject*) type == const_cast<PyTypeObject*>(Injector::PyType())) {
+				if (own_injector != NULL) {
+					return (PyObject*) Injector::Clone(own_injector, injector);
+				} else {
+					Py_INCREF(injector);
+					return (PyObject*) injector;
+				}
+			}
+
+			return NULL;
+		}
 	} /* end namespace _resolver */
 
 
-ValueResolver* ValueResolver::New(PyObject* name, PyObject* id, PyObject* default_value) {
+ValueResolver* ValueResolver::New(PyObject* name, PyObject* id, PyObject* default_value, PyObject* globals) {
 	ValueResolver* self = ValueResolver::Alloc();
 	if (self == NULL) {
 		return NULL;
 	}
 
-	if (name != NULL) { Py_INCREF(name); }
-	if (id != NULL) { Py_INCREF(id); }
-	if (default_value != NULL) { Py_INCREF(default_value); }
+	Py_XINCREF(name);
+	Py_XINCREF(id);
+	Py_XINCREF(default_value);
+	Py_XINCREF(globals);
 
 	self->name = name;
 	self->id = id;
 	self->default_value = default_value;
+	self->globals = globals;
 
 	return self;
 }
 
 
 template<bool UseKwOnly>
-PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector) {
+PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector, Injector* own_injector) {
 	// TODO: unpack type, handle Optional[...]
 	PyObject* type = self->id;
+	PyObject* result;
 
 	if (UseKwOnly) {
 		if (self->name) {
-			PyObject* byKw = _resolver::ResolveByKw(injector, self->name, type);
-			if (byKw != NULL) {
-				return byKw;
-			} else if (PyErr_Occurred()) {
-				return NULL;
+			if (own_injector != NULL) {
+				result = _resolver::ResolveByKw(own_injector, injector, self->name, type);
+				ValueResulver_ReturnIfOk(result)
 			}
+			result = _resolver::ResolveByKw(injector, injector, self->name, type);
+			ValueResulver_ReturnIfOk(result)
 		}
 	}
 
 	if (type) {
-		PyObject* byType = _resolver::ResolveByType(injector, type);
-		if (byType != NULL) {
-			return byType;
-		} else if (PyErr_Occurred()) {
-			return NULL;
-		}
+		result = _resolver::GetByType<true>(self, injector, own_injector, type);
+		ValueResulver_ReturnIfOk(result);
 	}
 
-	if (self->default_value) {
+	if (self->default_value != NULL) {
 		Py_INCREF(self->default_value);
 		return self->default_value;
 	}
 
-	PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_ProviderNotFound, self);
-	return NULL;
+	return PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_InjectableNotFound, self);
 }
 
 
@@ -130,34 +179,61 @@ void ValueResolver::__dealloc__(ValueResolver* self) {
 	Py_CLEAR(self->name);
 	Py_CLEAR(self->id);
 	Py_CLEAR(self->default_value);
+	Py_CLEAR(self->globals);
 	Super::__dealloc__(self);
 }
 
 
 PyObject* ValueResolver::__repr__(ValueResolver* self) {
-	PyObject* idname;
-	if (self->id == NULL) {
-		idname = Py_None;
-		Py_INCREF(idname);
-	} else {
-		idname = PyObject_GetAttr(self->id, Module::State()->STR_QUALNAME);
-		if (idname == NULL) {
+	Yapic::UnicodeBuilder<256> builder;
+	if (!builder.AppendStringSafe("<ValueResolver")) {
+		return NULL;
+	}
+
+	if (self->name) {
+		if (!builder.AppendStringSafe(" name=")) {
+			return NULL;
+		}
+		if (!builder.AppendStringSafe(self->name)) {
 			return NULL;
 		}
 	}
 
-	PyObject* repr;
-	if (self->default_value) {
-		repr = PyUnicode_FromFormat("<ValueResolver name=%R, id=%S, default=%R>",
-			self->name, idname, self->default_value);
-	} else {
-		repr = PyUnicode_FromFormat("<ValueResolver name=%R, id=%S>",
-			self->name, idname);
+	if (self->id) {
+		if (!builder.AppendStringSafe(" id=")) {
+			return NULL;
+		}
+		PyPtr<> repr = PyObject_Repr(self->id);
+		if (repr.IsNull()) {
+			return NULL;
+		}
+		if (!builder.AppendStringSafe(repr)) {
+			return NULL;
+		}
 	}
-	Py_DECREF(idname);
-	return repr;
+
+	if (self->default_value) {
+		if (!builder.AppendStringSafe(" default=")) {
+			return NULL;
+		}
+		PyPtr<> repr = PyObject_Repr(self->default_value);
+		if (repr.IsNull()) {
+			return NULL;
+		}
+		if (!builder.AppendStringSafe(repr)) {
+			return NULL;
+		}
+	}
+
+	if (!builder.AppendStringSafe(">")) {
+		return NULL;
+	}
+
+	return builder.ToPython();
 }
 
 } // end namespace ZenoDI
+
+#undef ValueResulver_ReturnIfOk
 
 #endif /* E59C6756_5133_C8FB_12AD_80BD2DE30129 */

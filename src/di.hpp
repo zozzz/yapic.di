@@ -10,6 +10,7 @@
 #include <yapic/module.hpp>
 #include <yapic/type.hpp>
 #include <yapic/pyptr.hpp>
+#include <yapic/string-builder.hpp>
 
 #include "./errors.hpp"
 
@@ -24,14 +25,16 @@ public:
 	Injector* parent;
 
 	static Injector* New(Injector* parent);
-	static Injector* New(Injector* parent, PyObject* scope);
 	static PyObject* Find(Injector* injector, PyObject* id);
 	static PyObject* Provide(Injector* injector, PyObject* id);
 	static PyObject* Provide(Injector* injector, PyObject* id, PyObject* value, PyObject* strategy, PyObject* provide);
 	static void SetParent(Injector* injector, Injector* parent);
+	static Injector* Clone(Injector* injector);
+	static Injector* Clone(Injector* injector, Injector* parent);
 
 	static PyObject* __new__(PyTypeObject *type, PyObject *args, PyObject *kwargs);
 	static void __dealloc__(Injector* self);
+	static PyObject* __mp_getitem__(Injector* self, PyObject* key);
 	static PyObject* provide(Injector* self, PyObject* args, PyObject* kwargs);
 	static PyObject* get(Injector* self, PyObject* id);
 	static PyObject* exec(Injector* self, PyObject* args, PyObject* kwargs);
@@ -48,8 +51,10 @@ public:
 };
 
 
-class Provider: public Yapic::Type<Provider, Yapic::Object> {
+class Injectable: public Yapic::Type<Injectable, Yapic::Object> {
 public:
+	using UnicodeBuilder = Yapic::UnicodeBuilder<1024>;
+
 	enum ValueType {
 		CLASS = 1,
 		FUNCTION = 2,
@@ -69,7 +74,7 @@ public:
 	PyObject* args; 		// tuple[ValueResolver]
 	PyObject* kwargs;		// dict[str, ValueResolver]
 	PyObject* attributes;	// dict[str, ValueResolver]
-	PyObject* own_scope;	// dict[id, ...]
+	Injector* own_injector;
 	PyObject* custom_strategy;
 
 	ValueType value_type;
@@ -77,16 +82,18 @@ public:
 
 	Yapic_PrivateNew;
 
-	static Provider* New(PyObject* value, Strategy strategy, PyObject* provide);
-	static Provider* New(PyObject* value, PyObject* strategy, PyObject* provide);
-	static PyObject* Resolve(Provider* self, Injector* injector);
-	// static PyObject* Exec(Provider* self, Injector* injector);
+	static Injectable* New(PyObject* value, Strategy strategy, PyObject* provide);
+	static Injectable* New(PyObject* value, PyObject* strategy, PyObject* provide);
+	static PyObject* Resolve(Injectable* self, Injector* injector);
+	static bool ToString(Injectable* self, UnicodeBuilder* builder, int level);
+	// static PyObject* Exec(Injectable* self, Injector* injector);
 	// egy injectort vár paraméternek, és így vissza tudja adni azt, amit kell
-	static PyObject* __call__(Provider* self, PyObject* args, PyObject** kwargs);
-	static void __dealloc__(Provider* self);
-	// visszaad egy bounded provider objektumot, aminek már nem kell megadni
+	static PyObject* __call__(Injectable* self, PyObject* args, PyObject** kwargs);
+	static PyObject* __repr__(Injectable* self);
+	static void __dealloc__(Injectable* self);
+	// visszaad egy bounded injectable objektumot, aminek már nem kell megadni
 	// az injector objektumot, akkor ha meghívjuk
-	static PyObject* bind(Provider* self, Injector* injector);
+	static PyObject* bind(Injectable* self, Injector* injector);
 
 	Yapic_METHODS_BEGIN
 		Yapic_Method(bind, METH_O, "")
@@ -94,29 +101,16 @@ public:
 };
 
 
-class BoundProvider: public Yapic::Type<BoundProvider, Yapic::Object> {
+class BoundInjectable: public Yapic::Type<BoundInjectable, Yapic::Object> {
 public:
-	Provider* provider;
+	Injectable* injectable;
 	Injector* injector;
 
 	Yapic_PrivateNew;
 
-	static BoundProvider* New(Provider* provider, Injector* injector);
-	static PyObject* __call__(BoundProvider* self, PyObject* args, PyObject** kwargs);
-	static void __dealloc__(BoundProvider* self);
-};
-
-
-class ProviderFactory: public Yapic::Type<ProviderFactory, Yapic::Object> {
-public:
-	Provider* provider;
-	Injector* injector;
-
-	Yapic_PrivateNew;
-
-	static ProviderFactory* New(Provider* provider, Injector* injector);
-	static PyObject* __call__(ProviderFactory* self, PyObject* args, PyObject** kwargs);
-	static void __dealloc__(ProviderFactory* self);
+	static BoundInjectable* New(Injectable* injectable, Injector* injector);
+	static PyObject* __call__(BoundInjectable* self, PyObject* args, PyObject** kwargs);
+	static void __dealloc__(BoundInjectable* self);
 };
 
 
@@ -125,12 +119,13 @@ public:
 	PyObject* id;
 	PyObject* name;
 	PyObject* default_value;
+	PyObject* globals;
 
 	Yapic_PrivateNew;
 
-	static ValueResolver* New(PyObject* name, PyObject* id, PyObject* default_value);
+	static ValueResolver* New(PyObject* name, PyObject* id, PyObject* default_value, PyObject* globals);
 	template<bool UseKwOnly>
-	static PyObject* Resolve(ValueResolver* self, Injector* injector);
+	static PyObject* Resolve(ValueResolver* self, Injector* injector, Injector* own_injector);
 	static void SetId(ValueResolver* self, PyObject* id);
 	static void SetName(ValueResolver* self, PyObject* name);
 	static void SetDefaultValue(ValueResolver* self, PyObject* value);
@@ -141,7 +136,7 @@ public:
 
 class KwOnly: public Yapic::Type<KwOnly, Yapic::Object> {
 public:
-	Provider* getter;
+	Injectable* getter;
 	ValueResolver* name_resolver;
 	ValueResolver* type_resolver;
 
@@ -161,17 +156,15 @@ public:
 
 	static constexpr const char* __name__ = "zeno.di";
 
-	ModuleVar STR_CODE;
-	ModuleVar STR_DEFAULTS;
-	ModuleVar STR_KWDEFAULTS;
 	ModuleVar STR_ANNOTATIONS;
 	ModuleVar STR_QUALNAME;
 	ModuleVar STR_CALL;
 	ModuleVar STR_INIT;
-	ModuleVar STR_NEW;
-	ModuleVar STR_SELF;
 	ModuleVar STR_KWA_NAME;
 	ModuleVar STR_KWA_TYPE;
+	ModuleVar STR_ARGS;
+	ModuleVar STR_PARAMETERS;
+	ModuleVar STR_MODULE;
 
 	ModuleVar FACTORY;
 	ModuleVar VALUE;
@@ -186,28 +179,26 @@ public:
 	PyObject* MethodWrapperType;
 
 	static inline int __init__(PyObject* module, Module* state) {
-		state->STR_CODE = "__code__";
-		state->STR_DEFAULTS = "__defaults__";
-		state->STR_KWDEFAULTS = "__kwdefaults__";
 		state->STR_ANNOTATIONS = "__annotations__";
 		state->STR_QUALNAME = "__qualname__";
 		state->STR_CALL = "__call__";
 		state->STR_INIT = "__init__";
-		state->STR_NEW = "__new__";
-		state->STR_SELF = "__self__";
 		state->STR_KWA_NAME = "name";
 		state->STR_KWA_TYPE = "type";
+		state->STR_ARGS = "__args__";
+		state->STR_PARAMETERS = "__parameters__";
+		state->STR_MODULE = "__module__";
 
-		state->VALUE.Value(Provider::Strategy::VALUE).Export("VALUE");
-		state->FACTORY.Value(Provider::Strategy::FACTORY).Export("FACTORY");
+		state->VALUE.Value(Injectable::Strategy::VALUE).Export("VALUE");
+		state->FACTORY.Value(Injectable::Strategy::FACTORY).Export("FACTORY");
 		state->SINGLETON.Value(
-			Provider::Strategy::SINGLETON |
-			Provider::Strategy::FACTORY
+			Injectable::Strategy::SINGLETON |
+			Injectable::Strategy::FACTORY
 		).Export("SINGLETON");
 		state->GLOBAL.Value(
-			Provider::Strategy::GLOBAL |
-			Provider::Strategy::SINGLETON |
-			Provider::Strategy::FACTORY
+			Injectable::Strategy::GLOBAL |
+			Injectable::Strategy::SINGLETON |
+			Injectable::Strategy::FACTORY
 		).Export("GLOBAL");
 
 		state->ExcBase.Define("InjectorError", PyExc_TypeError);
@@ -224,8 +215,8 @@ public:
 		Py_DECREF(method);
 
 		Injector::Register(module);
-		Provider::Register(module);
-		BoundProvider::Register(module);
+		Injectable::Register(module);
+		BoundInjectable::Register(module);
 		ValueResolver::Register(module);
 		KwOnly::Register(module);
 

@@ -7,6 +7,7 @@ from os import path
 from pathlib import Path
 from setuptools import setup, Extension
 from setuptools.command.test import test as TestCommand
+from setuptools import Command
 
 VERSION = "1.0.0"
 
@@ -16,7 +17,7 @@ define_macros = {
     "ZENO_DI_VERSION_PATCH": VERSION.split(".")[2],
 }
 undef_macros = []
-extra_compile_args = []
+extra_compile_args = []  # -flto
 
 if sys.platform == "win32":
     define_macros["UNICODE"] = 1
@@ -28,7 +29,8 @@ if sys.platform == "win32":
         extra_compile_args.append("/MTd")
         extra_compile_args.append("/Zi")
     else:
-        extra_compile_args.append("-Ox")
+        undef_macros.append("_DEBUG")
+        extra_compile_args.append("/Ox")
 
     extra_compile_args.append("/FAs")
 else:
@@ -109,6 +111,31 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 
+class Benchmark(Command):
+    user_options = [
+        ("file=", "f", "File to run"),
+    ]
+
+    def initialize_options(self):
+        self.file = None
+        self.pytest_args = "-x -s"
+
+    def finalize_options(self):
+        if self.file:
+            self.pytest_args += " " + self.file.replace("\\", "/")
+
+    def run(self):
+        def requirements(dist):
+            yield dist.extras_require["benchmark"]
+
+        cmd_prerun(self, requirements)
+        import shlex
+        import pytest
+        errno = pytest.main(shlex.split(self.pytest_args))
+        sys.exit(errno)
+
+
+
 # typing: https://github.com/python/typing/issues/84
 setup(
     name="zeno.di",
@@ -117,7 +144,14 @@ setup(
     ext_modules=[cpp_ext],
     tests_require=["pytest"],
     python_requires=">=3.5",
+    extras_require={
+        "benchmark": [
+            "pytest",
+            "pytest-benchmark"
+        ]
+    },
     cmdclass={
-        "test": PyTest
+        "test": PyTest,
+        "bench": Benchmark
     }
 )

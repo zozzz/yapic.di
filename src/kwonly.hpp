@@ -11,7 +11,7 @@ KwOnly* KwOnly::New(PyObject* getter) {
 		return NULL;
 	}
 
-	self->getter = Provider::New(getter, Provider::Strategy::FACTORY, NULL);
+	self->getter = Injectable::New(getter, Injectable::Strategy::FACTORY, NULL);
 	if (self->getter == NULL) {
 		return NULL;
 	}
@@ -50,7 +50,7 @@ PyObject* KwOnly::Resolve(KwOnly* self, Injector* injector, PyObject* name, PyOb
 		ValueResolver::SetDefaultValue(self->type_resolver, type);
 	}
 
-	PyObject* value = _provider::Factory<false>(self->getter, injector);
+	PyObject* value = _injectable::Factory<false>(self->getter, injector, NULL);
 	if (value == NULL) {
 		PyObject* exc = PyErr_Occurred(); // borrowed
 		if (PyErr_GivenExceptionMatches(exc, Module::State()->ExcNoKwOnly)) {
