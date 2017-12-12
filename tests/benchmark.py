@@ -1,6 +1,6 @@
 # from zeno.di.injector import Injector
 # from zeno.di.injector_new import Injector
-from zeno.di import Injector
+from zeno.di import Injector, VALUE
 
 
 # def test_scope_get(benchmark):
@@ -40,8 +40,26 @@ def test_native_fn_call(benchmark):
 
 def test_injector_get(benchmark):
     i = Injector()
-    i.provide("PROVIDED")
+    i.provide("PROVIDED", "PROVIDED", VALUE)
 
     benchmark.pedantic(lambda i: i.get("PROVIDED"), args=(i,), iterations=10000, rounds=100)
 
     assert i.get("PROVIDED") == "PROVIDED"
+
+
+def test_injector_getitem(benchmark):
+    i = Injector()
+    i.provide("PROVIDED", "PROVIDED", VALUE)
+
+    benchmark.pedantic(lambda i: i["PROVIDED"], args=(i,), iterations=10000, rounds=100)
+
+    assert i["PROVIDED"] == "PROVIDED"
+
+
+def test_injector_injectable(benchmark):
+    i = Injector()
+    injectable = i.provide("PROVIDED", "PROVIDED", VALUE)
+
+    benchmark.pedantic(lambda i: injectable(i), args=(i,), iterations=10000, rounds=100)
+
+    assert injectable(i) == "PROVIDED"

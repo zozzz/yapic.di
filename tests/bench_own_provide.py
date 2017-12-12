@@ -45,6 +45,20 @@ def test_injector_get(benchmark):
     benchmark.pedantic(lambda i: injector.get(i), args=(fn,), iterations=ITERS, rounds=100)
 
 
+def test_injector_getitem(benchmark):
+    class A:
+        pass
+
+    def fn(a: A):
+        return a
+
+    injector = Injector()
+    injector.provide(A)
+    injector.provide(fn)
+
+    benchmark.pedantic(lambda i: injector[i], args=(fn,), iterations=ITERS, rounds=100)
+
+
 def test_own_provide(benchmark):
     class A:
         pass

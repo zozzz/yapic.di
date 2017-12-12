@@ -156,6 +156,10 @@ PyObject* Injector::provide(Injector* self, PyObject* args, PyObject* kwargs) {
 }
 
 PyObject* Injector::get(Injector* self, PyObject* id) {
+	return Injector::__mp_getitem__(self, id);
+}
+
+PyObject* Injector::__mp_getitem__(Injector* self, PyObject* id) {
 	PyObject* injectable = Injector::Find(self, id); // borrowed
 	if (injectable == NULL || !Injectable::CheckExact(injectable)) {
 		PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_InjectableNotFound, id);
