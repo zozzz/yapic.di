@@ -33,3 +33,33 @@ def test_forwardref_class():
     assert isinstance(injector.get(B).a, A)
     assert isinstance(injector.get(B).b, xxx.SomeModule_A)
     assert isinstance(injector.get(B).c, xxx.some_module.SomeModule_B)
+
+
+class X:
+    pass
+
+
+class Y:
+    x: "X"
+
+    def __init__(self, xxx: "X"):
+        assert self.x is not xxx
+        assert isinstance(self.x, X)
+        assert isinstance(xxx, X)
+
+
+ginjector = Injector()
+ginjector.provide(X)
+ginjector.provide(Y)
+
+
+def test_forwardref_class_global():
+    def fn(y: "Y"):
+        assert isinstance(y, Y)
+        assert isinstance(y.x, X)
+        return "OK"
+
+    injector = ginjector.descend()
+    injector.provide(fn)
+
+    assert injector[fn] == "OK"

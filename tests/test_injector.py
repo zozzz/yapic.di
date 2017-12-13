@@ -180,7 +180,7 @@ def test_injector_own_kwonly():
 
     with pytest.raises(InjectError) as exc:
         assert injector.exec(fn) == "NICE"
-    exc.match("Not found suitable value for: <ValueResolver name='some_key', id=str>")
+    exc.match("Not found suitable value for: <ValueResolver name=some_key id=<class 'str'>>")
 
 
 def test_injector_inject_self():
@@ -200,6 +200,7 @@ def test_injector_inject_self():
     injector.provide(B)
 
     assert isinstance(injector.get(A), A)
+    assert isinstance(injector[A], A)
 
 
 def test_injector_inject_self2():
@@ -214,6 +215,7 @@ def test_injector_inject_self2():
             assert isinstance(self.inj.get(C), C)
             assert isinstance(self.inj.get(D), D)
             assert isinstance(self.inj.get(D).c, C)
+            assert isinstance(self.inj[D].c, C)
 
     class B:
         pass
@@ -236,7 +238,7 @@ def test_injector_inject_self2():
 
     with pytest.raises(InjectError) as exc:
         injector.get(D)
-    exc.match("Not found suitable value for: <ValueResolver name='c', id=test_injector_inject_self2.<locals>.C>")
+    exc.match("Not found suitable value for: <ValueResolver name=c id=<class 'test_injector.test_injector_inject_self2.<locals>.C'>>")
 
 
 def test_injector_kwonly_error():

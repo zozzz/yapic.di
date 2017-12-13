@@ -63,6 +63,7 @@ def test_generic_inherit_attr():
     assert isinstance(c.x, A)
 
 
+@pytest.mark.skip("TODO: can possible?")
 def test_generic_param():
     T = TypeVar("T")
 
@@ -84,6 +85,7 @@ def test_generic_param():
     assert injector.get(fn) == "OK"
 
 
+@pytest.mark.skip("TODO: can possible?")
 def test_generic_param2():
     T = TypeVar("T")
 
