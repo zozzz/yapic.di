@@ -42,7 +42,7 @@ KwOnly* KwOnly::New(PyObject* getter) {
 }
 
 
-PyObject* KwOnly::Resolve(KwOnly* self, Injector* injector, PyObject* name, PyObject* type) {
+PyObject* KwOnly::Resolve(KwOnly* self, Injector* injector, PyObject* name, PyObject* type, int recursion) {
 	assert(Injector::CheckExact(injector));
 
 	ValueResolver::SetDefaultValue(self->name_resolver, name);
@@ -50,7 +50,7 @@ PyObject* KwOnly::Resolve(KwOnly* self, Injector* injector, PyObject* name, PyOb
 		ValueResolver::SetDefaultValue(self->type_resolver, type);
 	}
 
-	PyObject* value = _injectable::Factory<false>(self->getter, injector, NULL);
+	PyObject* value = _injectable::Factory<false>(self->getter, injector, NULL, recursion);
 	if (value == NULL) {
 		PyObject* exc = PyErr_Occurred(); // borrowed
 		if (PyErr_GivenExceptionMatches(exc, Module::State()->ExcNoKwOnly)) {

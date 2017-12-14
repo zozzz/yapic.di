@@ -290,7 +290,12 @@ namespace _injectable {
 	}
 
 	template<bool UseKwOnly>
-	static inline PyObject* Factory(Injectable* injectable, Injector* injector, Injector* own_injector) {
+	static inline PyObject* Factory(Injectable* injectable, Injector* injector, Injector* own_injector, int recursion) {
+		if (++recursion >= ZenoDI_MAX_RECURSION) {
+			PyErr_Format(PyExc_RecursionError, ZenoDI_Err_RecursionError, injectable);
+			return NULL;
+		}
+
 		PyObject* tmp = injectable->args;
 		Py_ssize_t argc = tmp == NULL ? 0 : PyTuple_GET_SIZE(tmp);
 		PyPtr<> args = PyTuple_New(argc);
@@ -302,7 +307,7 @@ namespace _injectable {
 			ValueResolver* resolver = (ValueResolver*) PyTuple_GET_ITEM(tmp, i);
 			assert(ValueResolver::CheckExact(resolver));
 
-			PyObject* arg = ValueResolver::Resolve<false>(resolver, injector, own_injector);
+			PyObject* arg = ValueResolver::Resolve<false>(resolver, injector, own_injector, recursion);
 			if (arg == NULL) {
 				return NULL;
 			}
@@ -322,7 +327,7 @@ namespace _injectable {
 			argc = 0;
 
 			while (PyDict_Next(tmp, &argc, &key, &value)) {
-				PyObject* arg = ValueResolver::Resolve<UseKwOnly>((ValueResolver*) value, injector, own_injector);
+				PyObject* arg = ValueResolver::Resolve<UseKwOnly>((ValueResolver*) value, injector, own_injector, recursion);
 				if (arg == NULL || PyDict_SetItem(kwargs, key, arg) == -1) {
 					return NULL;
 				}
@@ -365,7 +370,7 @@ namespace _injectable {
 				Py_ssize_t apos = 0;
 				while (PyDict_Next(injectable->attributes, &apos, &akey, &avalue)) {
 					assert(ValueResolver::CheckExact(avalue));
-					PyPtr<> value = ValueResolver::Resolve<false>((ValueResolver*) avalue, injector, own_injector);
+					PyPtr<> value = ValueResolver::Resolve<false>((ValueResolver*) avalue, injector, own_injector, recursion);
 					if (value.IsNull()) {
 						return NULL;
 					}
@@ -492,7 +497,7 @@ Injectable* Injectable::New(PyObject* value, PyObject* strategy, PyObject* provi
 }
 
 
-PyObject* Injectable::Resolve(Injectable* self, Injector* injector) {
+PyObject* Injectable::Resolve(Injectable* self, Injector* injector, int recursion) {
 	auto strategy = self->strategy;
 	if (strategy & Strategy::FACTORY) {
 		if (strategy & Strategy::SINGLETON) {
@@ -514,7 +519,7 @@ PyObject* Injectable::Resolve(Injectable* self, Injector* injector) {
 			PyTuple_SET_ITEM(args, 1, (PyObject*) injector);
 			return PyObject_Call(self->custom_strategy, args, NULL);
 		} else {
-			return _injectable::Factory<true>(self, injector, self->own_injector);
+			return _injectable::Factory<true>(self, injector, self->own_injector, recursion);
 		}
 	} else if (strategy & Strategy::VALUE) {
 		Py_INCREF(self->value);
@@ -530,7 +535,7 @@ PyObject* Injectable::__call__(Injectable* self, PyObject* args, PyObject** kwar
 	PyObject* injector;
 	if (PyArg_UnpackTuple(args, "__call__", 1, 1, &injector)) {
 		if (Injector::CheckExact(injector)) {
-			return Injectable::Resolve(self, (Injector*) injector);
+			return Injectable::Resolve(self, (Injector*) injector, 0);
 		} else {
 			PyErr_SetString(PyExc_TypeError, ZenoDI_Err_OneInjectorArg);
 			return NULL;
@@ -695,11 +700,9 @@ bool Injectable::ToString(Injectable* self, UnicodeBuilder* builder, int level) 
 			PyObject* v;
 			Py_ssize_t p=0;
 			while (PyDict_Next(self->own_injector->scope, &p, &k, &v)) {
-				if (Injectable::CheckExact(v)) {
-					Injectable_AppendString("\n");
-					if (!Injectable::ToString((Injectable*) v, builder, level + 3)) {
-						return false;
-					}
+				Injectable_AppendString("\n");
+				if (!Injectable::ToString((Injectable*) v, builder, level + 3)) {
+					return false;
 				}
 			}
 		}
@@ -756,7 +759,7 @@ PyObject* BoundInjectable::__call__(BoundInjectable* self, PyObject* args, PyObj
 		PyErr_Format(PyExc_TypeError, "__call__ expected 0 arguments, got %i", PyTuple_GET_SIZE(args));
 		return NULL;
 	}
-	return Injectable::Resolve(self->injectable, self->injector);
+	return Injectable::Resolve(self->injectable, self->injector, 0);
 }
 
 

@@ -287,20 +287,18 @@ def test_injector_kwonly_def_error():
     exc.match("Keyword argument resolver function muts have 'name' keyword only argument")
 
 
+def test_injector_recursion():
+    injector = Injector()
 
+    class A:
+        def __init__(self, a: "A") -> None:
+            pass
 
-# def test_injector_recursion():
-#     injector = Injector()
+    injector.provide(A)
+    injector.provide("A", A)
 
-#     class A:
-#         def __init__(self, a: "A") -> None:
-#             pass
+    def x(a: A):
+        return "OK"
 
-#     injector.provide(A, Factory())
-#     injector.provide("A", A, Factory())
-
-#     def x(a: A):
-#         return "OK"
-
-#     with pytest.raises(RecursionError):
-#         assert injector.invoke(x) == "OK"
+    with pytest.raises(RecursionError):
+        assert injector.exec(x) == "OK"

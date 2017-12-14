@@ -5,6 +5,8 @@
 #define ZenoDI_REPR(o) (((PyObject*)o) == NULL ? "<NULL>" : ((char*) PyUnicode_DATA(PyObject_Repr(((PyObject*)o)))))
 #define ZenoDI_DUMP(o) printf(#o " = %s\n", ZenoDI_REPR(o))
 
+#define ZenoDI_MAX_RECURSION 1000
+
 #include <stdbool.h>
 #include <Python.h>
 #include <yapic/module.hpp>
@@ -84,7 +86,7 @@ public:
 
 	static Injectable* New(PyObject* value, Strategy strategy, PyObject* provide);
 	static Injectable* New(PyObject* value, PyObject* strategy, PyObject* provide);
-	static PyObject* Resolve(Injectable* self, Injector* injector);
+	static PyObject* Resolve(Injectable* self, Injector* injector, int recursion);
 	static bool ToString(Injectable* self, UnicodeBuilder* builder, int level);
 	// static PyObject* Exec(Injectable* self, Injector* injector);
 	// egy injectort vár paraméternek, és így vissza tudja adni azt, amit kell
@@ -125,7 +127,7 @@ public:
 
 	static ValueResolver* New(PyObject* name, PyObject* id, PyObject* default_value, PyObject* globals);
 	template<bool UseKwOnly>
-	static PyObject* Resolve(ValueResolver* self, Injector* injector, Injector* own_injector);
+	static PyObject* Resolve(ValueResolver* self, Injector* injector, Injector* own_injector, int recursion);
 	static void SetId(ValueResolver* self, PyObject* id);
 	static void SetName(ValueResolver* self, PyObject* name);
 	static void SetDefaultValue(ValueResolver* self, PyObject* value);
@@ -141,7 +143,7 @@ public:
 	ValueResolver* type_resolver;
 
 	static KwOnly* New(PyObject* getter);
-	static PyObject* Resolve(KwOnly* self, Injector* injector, PyObject* name, PyObject* type);
+	static PyObject* Resolve(KwOnly* self, Injector* injector, PyObject* name, PyObject* type, int recursion);
 	static PyObject* __new__(PyTypeObject *type, PyObject *args, PyObject *kwargs);
 	static void __dealloc__(KwOnly* self);
 	static PyObject* __repr__(KwOnly* self);
