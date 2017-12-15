@@ -66,10 +66,10 @@ public:
 	enum Strategy {
 		FACTORY = 1,
 		VALUE = 2,
-		GLOBAL = 4,
-		SINGLETON = 8,
+		SINGLETON = 4,
+		SCOPED = 8,
 		CUSTOM = 16,
-		ALL = FACTORY | VALUE | GLOBAL | SINGLETON | CUSTOM
+		ALL = FACTORY | VALUE | SINGLETON | SCOPED | CUSTOM
 	};
 
 	PyObject* value;
@@ -79,6 +79,7 @@ public:
 	Injector* own_injector;
 	PyObject* custom_strategy;
 
+	Py_hash_t hash;
 	ValueType value_type;
 	Strategy strategy;
 
@@ -91,6 +92,8 @@ public:
 	// static PyObject* Exec(Injectable* self, Injector* injector);
 	// egy injectort vár paraméternek, és így vissza tudja adni azt, amit kell
 	static PyObject* __call__(Injectable* self, PyObject* args, PyObject** kwargs);
+	static Py_hash_t __hash__(Injectable* self);
+	static PyObject* __cmp__(Injectable* self, PyObject* other, int op);
 	static PyObject* __repr__(Injectable* self);
 	static void __dealloc__(Injectable* self);
 	// visszaad egy bounded injectable objektumot, aminek már nem kell megadni
@@ -107,12 +110,31 @@ class BoundInjectable: public Yapic::Type<BoundInjectable, Yapic::Object> {
 public:
 	Injectable* injectable;
 	Injector* injector;
+	Py_hash_t hash;
 
 	Yapic_PrivateNew;
 
-	static BoundInjectable* New(Injectable* injectable, Injector* injector);
+	static BoundInjectable* New(Injectable* injectable, Injector* injector, Py_hash_t hash);
 	static PyObject* __call__(BoundInjectable* self, PyObject* args, PyObject** kwargs);
+	static Py_hash_t __hash__(BoundInjectable* self);
+	static PyObject* __cmp__(BoundInjectable* self, PyObject* other, int op);
 	static void __dealloc__(BoundInjectable* self);
+};
+
+
+class InjectableFactory: public Yapic::Type<InjectableFactory, Yapic::Object> {
+public:
+	Injectable* injectable;
+	Injector* injector;
+	Py_hash_t hash;
+
+	Yapic_PrivateNew;
+
+	static InjectableFactory* New(Injectable* injectable, Injector* injector, Py_hash_t hash);
+	static PyObject* __call__(InjectableFactory* self, PyObject* args, PyObject** kwargs);
+	static Py_hash_t __hash__(InjectableFactory* self);
+	static PyObject* __cmp__(InjectableFactory* self, PyObject* other, int op);
+	static void __dealloc__(InjectableFactory* self);
 };
 
 
@@ -196,12 +218,12 @@ public:
 		state->SINGLETON.Value(
 			Injectable::Strategy::SINGLETON |
 			Injectable::Strategy::FACTORY
-		).Export("SINGLETON");
+		).Export("SCOPED_SINGLETON");
 		state->GLOBAL.Value(
-			Injectable::Strategy::GLOBAL |
 			Injectable::Strategy::SINGLETON |
+			Injectable::Strategy::SCOPED |
 			Injectable::Strategy::FACTORY
-		).Export("GLOBAL");
+		).Export("SINGLETON");
 
 		state->ExcBase.Define("InjectorError", PyExc_TypeError);
 		state->ExcProvideError.Define("ProvideError", state->ExcBase);
@@ -219,6 +241,7 @@ public:
 		Injector::Register(module);
 		Injectable::Register(module);
 		BoundInjectable::Register(module);
+		InjectableFactory::Register(module);
 		ValueResolver::Register(module);
 		KwOnly::Register(module);
 

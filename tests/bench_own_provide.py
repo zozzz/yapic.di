@@ -84,3 +84,20 @@ def test_cached_provide(benchmark):
     factory = injector.provide(fn)
 
     benchmark.pedantic(lambda i: factory(i), args=(injector,), iterations=ITERS, rounds=100)
+
+
+def test_custom_factory(benchmark):
+    def cstrategy(factory):
+        return factory()
+
+    class A:
+        pass
+
+    def fn(a: A):
+        return a
+
+    injector = Injector()
+    injector.provide(A, A, cstrategy)
+    injector.provide(fn)
+
+    benchmark.pedantic(lambda i: injector[i], args=(fn,), iterations=ITERS, rounds=100)

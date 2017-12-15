@@ -67,32 +67,33 @@ PyObject* Injector::Provide(Injector* self, PyObject* id) {
 
 
 PyObject* Injector::Provide(Injector* self, PyObject* id, PyObject* value, PyObject* strategy, PyObject* provide) {
-	if (value == NULL) {
-		if (strategy == NULL) {
-			strategy = value;
-		}
-		value = id;
-	}
-
-	if (KwOnly::CheckExact(value)) {
+	if (KwOnly::CheckExact(id)) {
 		if (!self->kwargs) {
 			self->kwargs = PyList_New(1);
 			if (self->kwargs == NULL) {
 				return NULL;
 			}
-			Py_INCREF(value);
-			PyList_SET_ITEM(self->kwargs, 0, value);
-		} else if (PyList_Append(self->kwargs, value) == -1) {
+			Py_INCREF(id);
+			PyList_SET_ITEM(self->kwargs, 0, id);
+		} else if (PyList_Append(self->kwargs, id) == -1) {
 			return NULL;
 		}
-
 		Py_RETURN_NONE;
+	}
+
+	if (value == NULL) {
+		value = id;
 	}
 
 	value = (PyObject*) Injectable::New(value, strategy, provide);
 	if (value == NULL) {
 		return NULL;
 	}
+	Py_hash_t hash = PyObject_Hash(id);
+	if (hash == -1) {
+		return NULL;
+	}
+	((Injectable*) value)->hash = hash;
 
 	if (PyDict_SetItem(self->scope, id, value) == -1) {
 		Py_DECREF(value);

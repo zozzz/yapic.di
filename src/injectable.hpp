@@ -4,6 +4,7 @@
 #include "./di.hpp"
 #include "./util.hpp"
 
+
 namespace ZenoDI {
 
 namespace _injectable {
@@ -499,35 +500,39 @@ Injectable* Injectable::New(PyObject* value, PyObject* strategy, PyObject* provi
 
 PyObject* Injectable::Resolve(Injectable* self, Injector* injector, int recursion) {
 	auto strategy = self->strategy;
-	if (strategy & Strategy::FACTORY) {
+	if (strategy == Strategy::FACTORY) {
+		return _injectable::Factory<true>(self, injector, self->own_injector, recursion);
+	} else if (strategy & Strategy::FACTORY) {
 		if (strategy & Strategy::SINGLETON) {
-			// lock begin
-			if (strategy & Strategy::GLOBAL) {
-				// Module::State()->globals[self] ?= instance
-			} else {
+			if (strategy & Strategy::SCOPED) {
 				// injector->scope[self] ?= instance
+			} else {
+				// lock begin
+				// Module::State()->globals[self] ?= instance
+				// lock end
 			}
-			// lock end
 		} else if (self->custom_strategy != NULL) {
-			PyPtr<> args = PyTuple_New(2);
-			if (args.IsNull()) {
+			PyPtr<> factory = (PyObject*) InjectableFactory::New(self, injector, self->hash);
+			if (factory.IsNull()) {
 				return NULL;
 			}
-			Py_INCREF(self);
-			Py_INCREF(injector);
-			PyTuple_SET_ITEM(args, 0, (PyObject*) self);
-			PyTuple_SET_ITEM(args, 1, (PyObject*) injector);
-			return PyObject_Call(self->custom_strategy, args, NULL);
-		} else {
-			return _injectable::Factory<true>(self, injector, self->own_injector, recursion);
+			return PyObject_CallFunctionObjArgs(self->custom_strategy, factory, NULL);
+			// PyPtr<> args = PyTuple_New(2);
+			// if (args.IsNull()) {
+			// 	return NULL;
+			// }
+			// Py_INCREF(self);
+			// Py_INCREF(injector);
+			// PyTuple_SET_ITEM(args, 0, (PyObject*) self);
+			// PyTuple_SET_ITEM(args, 1, (PyObject*) injector);
+			// return PyObject_Call(self->custom_strategy, args, NULL);
 		}
 	} else if (strategy & Strategy::VALUE) {
 		Py_INCREF(self->value);
 		return self->value;
-	} else {
-		PyErr_BadInternalCall();
-		return NULL;
 	}
+	assert(0);
+	return NULL;
 }
 
 
@@ -547,7 +552,7 @@ PyObject* Injectable::__call__(Injectable* self, PyObject* args, PyObject** kwar
 
 PyObject* Injectable::bind(Injectable* self, Injector* injector) {
 	if (Injector::CheckExact(injector)) {
-		return (PyObject*) BoundInjectable::New(self, injector);
+		return (PyObject*) BoundInjectable::New(self, injector, self->hash);
 	} else {
 		PyErr_SetString(PyExc_TypeError, ZenoDI_Err_OneInjectorArg);
 		return NULL;
@@ -734,7 +739,7 @@ void Injectable::__dealloc__(Injectable* self) {
 }
 
 
-BoundInjectable* BoundInjectable::New(Injectable* injectable, Injector* injector) {
+BoundInjectable* BoundInjectable::New(Injectable* injectable, Injector* injector, Py_hash_t hash) {
 	assert(Injectable::CheckExact(injectable));
 	assert(Injector::CheckExact(injector));
 
@@ -749,6 +754,7 @@ BoundInjectable* BoundInjectable::New(Injectable* injectable, Injector* injector
 
 	self->injectable = injectable;
 	self->injector = injector;
+	self->hash = hash;
 
 	return self;
 }
@@ -769,6 +775,68 @@ void BoundInjectable::__dealloc__(BoundInjectable* self) {
 	Super::__dealloc__(self);
 }
 
+
+InjectableFactory* InjectableFactory::New(Injectable* injectable, Injector* injector, Py_hash_t hash) {
+	assert(Injectable::CheckExact(injectable));
+	assert(Injector::CheckExact(injector));
+
+	InjectableFactory* self = InjectableFactory::Alloc();
+	if (self == NULL) { return NULL; }
+
+	assert(Injectable::CheckExact(injectable));
+	assert(Injector::CheckExact(injector));
+
+	Py_INCREF(injectable);
+	Py_INCREF(injector);
+
+	self->injectable = injectable;
+	self->injector = injector;
+	self->hash = hash;
+
+	return self;
+}
+
+
+PyObject* InjectableFactory::__call__(InjectableFactory* self, PyObject* args, PyObject** kwargs) {
+	return _injectable::Factory<true>(self->injectable, self->injector, self->injectable->own_injector, 0);
+}
+
+
+void InjectableFactory::__dealloc__(InjectableFactory* self) {
+	Py_XDECREF(self->injectable);
+	Py_XDECREF(self->injector);
+	Super::__dealloc__(self);
+}
+
+
+#define ZenoDI_HashMethods(__cls) \
+	Py_hash_t __cls::__hash__(__cls* self) { \
+		return self->hash; \
+	} \
+	PyObject* __cls::__cmp__(__cls* self, PyObject* other, int op) { \
+		Py_hash_t otherHash = PyObject_Hash(other); \
+		if (otherHash == -1) { \
+			return NULL; \
+		} \
+		PyObject* res; \
+		switch (op) { \
+			case Py_LT: res = (self->hash < otherHash ? Py_True : Py_False); break; \
+			case Py_LE: res = (self->hash <= otherHash ? Py_True : Py_False); break; \
+			case Py_EQ: res = (self->hash == otherHash ? Py_True : Py_False); break; \
+			case Py_NE: res = (self->hash != otherHash ? Py_True : Py_False); break; \
+			case Py_GT: res = (self->hash > otherHash ? Py_True : Py_False); break; \
+			case Py_GE: res = (self->hash >= otherHash ? Py_True : Py_False); break; \
+		} \
+		Py_INCREF(res); \
+		return res; \
+	}
+
+
+ZenoDI_HashMethods(Injectable)
+ZenoDI_HashMethods(BoundInjectable)
+ZenoDI_HashMethods(InjectableFactory)
+
+#undef ZenoDI_HashMethods
 
 } // end namespace ZenoDI
 
