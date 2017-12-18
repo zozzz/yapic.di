@@ -22,7 +22,8 @@ using Yapic::PyPtr;
 
 class Injector: public Yapic::Type<Injector, Yapic::Object> {
 public:
-	PyObject* scope;
+	PyObject* injectables;
+	PyObject* singletons;
 	PyObject* kwargs;
 	Injector* parent;
 
@@ -99,9 +100,11 @@ public:
 	// visszaad egy bounded injectable objektumot, aminek már nem kell megadni
 	// az injector objektumot, akkor ha meghívjuk
 	static PyObject* bind(Injectable* self, Injector* injector);
+	static PyObject* resolve(Injectable* self, Injector* injector);
 
 	Yapic_METHODS_BEGIN
 		Yapic_Method(bind, METH_O, "")
+		Yapic_Method(resolve, METH_O, "")
 	Yapic_METHODS_END
 };
 
@@ -122,7 +125,7 @@ public:
 };
 
 
-class InjectableFactory: public Yapic::Type<InjectableFactory, Yapic::Object> {
+class InjectableFactory: public Yapic::Type<InjectableFactory, Yapic::Object, Yapic::FreeList<InjectableFactory, 256>> {
 public:
 	Injectable* injectable;
 	Injector* injector;
@@ -217,11 +220,11 @@ public:
 		state->FACTORY.Value(Injectable::Strategy::FACTORY).Export("FACTORY");
 		state->SINGLETON.Value(
 			Injectable::Strategy::SINGLETON |
+			Injectable::Strategy::SCOPED |
 			Injectable::Strategy::FACTORY
 		).Export("SCOPED_SINGLETON");
 		state->GLOBAL.Value(
 			Injectable::Strategy::SINGLETON |
-			Injectable::Strategy::SCOPED |
 			Injectable::Strategy::FACTORY
 		).Export("SINGLETON");
 

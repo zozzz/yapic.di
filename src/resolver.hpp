@@ -18,7 +18,7 @@ namespace ZenoDI {
 			assert(Injector::CheckExact(injector));
 
 			do {
-				PyObject* result = PyDict_GetItem(injector->scope, type);
+				PyObject* result = PyDict_GetItem(injector->injectables, type);
 				if (result != NULL) {
 					assert(Injectable::CheckExact(result));
 					return Injectable::Resolve((Injectable*) result, resolve, recursion);

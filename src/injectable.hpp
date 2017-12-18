@@ -202,7 +202,7 @@ namespace _injectable {
 						continue;
 					}
 
-					// TODO: found better ide to get class definier scope
+					// TODO: found better ide to get class definier injectables
 					PyPtr<> module = PyObject_GetAttr(base, str_module);
 					if (module.IsNull()) {
 						return false;
@@ -290,6 +290,7 @@ namespace _injectable {
 		return injector.Steal();
 	}
 
+	// TODO: kiprobálni a PyObject_CallFunctionObjArgs
 	template<bool UseKwOnly>
 	static inline PyObject* Factory(Injectable* injectable, Injector* injector, Injector* own_injector, int recursion) {
 		if (++recursion >= ZenoDI_MAX_RECURSION) {
@@ -505,27 +506,50 @@ PyObject* Injectable::Resolve(Injectable* self, Injector* injector, int recursio
 	} else if (strategy & Strategy::FACTORY) {
 		if (strategy & Strategy::SINGLETON) {
 			if (strategy & Strategy::SCOPED) {
-				// injector->scope[self] ?= instance
+				PyObject* inst = PyDict_GetItem(injector->singletons, (PyObject*) self);
+				if (inst == NULL) {
+					inst = _injectable::Factory<true>(self, injector, self->own_injector, recursion);
+					if (inst == NULL) {
+						return NULL;
+					}
+					if (PyDict_SetItem(injector->singletons, (PyObject*) self, inst) < 0) {
+						Py_DECREF(inst);
+						return NULL;
+					}
+				} else {
+					Py_INCREF(inst);
+				}
+				return inst;
+				// injector->injectables[self] ?= instance
 			} else {
 				// lock begin
 				// Module::State()->globals[self] ?= instance
 				// lock end
 			}
 		} else if (self->custom_strategy != NULL) {
-			PyPtr<> factory = (PyObject*) InjectableFactory::New(self, injector, self->hash);
-			if (factory.IsNull()) {
-				return NULL;
-			}
-			return PyObject_CallFunctionObjArgs(self->custom_strategy, factory, NULL);
-			// PyPtr<> args = PyTuple_New(2);
-			// if (args.IsNull()) {
+			// PyPtr<> factory = (PyObject*) InjectableFactory::New(self, injector, self->hash);
+			// if (factory.IsNull()) {
 			// 	return NULL;
 			// }
-			// Py_INCREF(self);
-			// Py_INCREF(injector);
-			// PyTuple_SET_ITEM(args, 0, (PyObject*) self);
-			// PyTuple_SET_ITEM(args, 1, (PyObject*) injector);
-			// return PyObject_Call(self->custom_strategy, args, NULL);
+			// return PyObject_CallFunctionObjArgs(self->custom_strategy, factory, NULL);
+
+
+			// PyObject* args = PyTuple_New(2);
+			// if (args != NULL) {
+			// 	Py_INCREF(self);
+			// 	PyTuple_SET_ITEM(args, 0, (PyObject*) self);
+			// 	Py_INCREF(injector);
+			// 	PyTuple_SET_ITEM(args, 1, (PyObject*) injector);
+			// 	// PyObject* res = PyObject_Call(self->custom_strategy, args, NULL);
+			// 	PyObject* res = Py_TYPE(self->custom_strategy)->tp_call(self->custom_strategy, args, NULL);
+			// 	Py_DECREF(args);
+			// 	return res;
+			// } else {
+			// 	return NULL;
+			// }
+
+
+			return PyObject_CallFunctionObjArgs(self->custom_strategy, self, injector, NULL);
 		}
 	} else if (strategy & Strategy::VALUE) {
 		Py_INCREF(self->value);
@@ -537,22 +561,35 @@ PyObject* Injectable::Resolve(Injectable* self, Injector* injector, int recursio
 
 
 PyObject* Injectable::__call__(Injectable* self, PyObject* args, PyObject** kwargs) {
-	PyObject* injector;
-	if (PyArg_UnpackTuple(args, "__call__", 1, 1, &injector)) {
-		if (Injector::CheckExact(injector)) {
-			return Injectable::Resolve(self, (Injector*) injector, 0);
-		} else {
-			PyErr_SetString(PyExc_TypeError, ZenoDI_Err_OneInjectorArg);
-			return NULL;
+	if (self->strategy & Injectable::Strategy::FACTORY) {
+		if (args != NULL && PyTuple_CheckExact(args) && PyTuple_GET_SIZE(args) == 1) {
+			Injector* injector = (Injector*) PyTuple_GET_ITEM(args, 0);
+			if (Injector::CheckExact(injector)) {
+				return _injectable::Factory<true>(self, injector, self->own_injector, 0);
+			}
 		}
+		PyErr_SetString(PyExc_TypeError, ZenoDI_Err_OneInjectorArg);
+		return NULL;
+	} else {
+		PyErr_SetString(Module::State()->ExcInjectError, ZenoDI_Err_NotFactory);
+		return NULL;
 	}
-	return NULL;
 }
 
 
 PyObject* Injectable::bind(Injectable* self, Injector* injector) {
 	if (Injector::CheckExact(injector)) {
 		return (PyObject*) BoundInjectable::New(self, injector, self->hash);
+	} else {
+		PyErr_SetString(PyExc_TypeError, ZenoDI_Err_OneInjectorArg);
+		return NULL;
+	}
+}
+
+
+PyObject* Injectable::resolve(Injectable* self, Injector* injector) {
+	if (injector != NULL && Injector::CheckExact(injector)) {
+		return Injectable::Resolve(self, (Injector*) injector, 0);
 	} else {
 		PyErr_SetString(PyExc_TypeError, ZenoDI_Err_OneInjectorArg);
 		return NULL;
@@ -697,14 +734,14 @@ bool Injectable::ToString(Injectable* self, UnicodeBuilder* builder, int level) 
 			}
 		}
 
-		if (self->own_injector->scope && PyDict_Size(self->own_injector->scope) > 0) {
+		if (self->own_injector->injectables && PyDict_Size(self->own_injector->injectables) > 0) {
 			Injectable_AppendString("\n");
 			Injectable_AppendIndent(level + 2);
 			Injectable_AppendString("Injectables:");
 			PyObject* k;
 			PyObject* v;
 			Py_ssize_t p=0;
-			while (PyDict_Next(self->own_injector->scope, &p, &k, &v)) {
+			while (PyDict_Next(self->own_injector->injectables, &p, &k, &v)) {
 				Injectable_AppendString("\n");
 				if (!Injectable::ToString((Injectable*) v, builder, level + 3)) {
 					return false;
@@ -805,7 +842,7 @@ PyObject* InjectableFactory::__call__(InjectableFactory* self, PyObject* args, P
 void InjectableFactory::__dealloc__(InjectableFactory* self) {
 	Py_XDECREF(self->injectable);
 	Py_XDECREF(self->injector);
-	Super::__dealloc__(self);
+	Allocator::Dealloc(self);
 }
 
 

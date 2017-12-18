@@ -13,5 +13,6 @@
 #define ZenoDI_Err_IllegalGenericProvide "You can't provide 'Generic' class without template arguments: %R."
 #define ZenoDI_Err_OneInjectorArg "Bad argument, must call with 'Injector' instance."
 #define ZenoDI_Err_RecursionError "Recusrion fund while injecting:\n%R"
+#define ZenoDI_Err_NotFactory "This injectable is not support '__call__', because is not a factory."
 
 #endif /* BBF4C6D8_A133_C8FC_1285_ADC240274FF5 */

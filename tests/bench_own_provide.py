@@ -1,4 +1,4 @@
-from zeno.di import Injector
+from zeno.di import Injector, SCOPED_SINGLETON
 
 ITERS = 20000
 
@@ -81,14 +81,14 @@ def test_cached_provide(benchmark):
 
     injector = Injector()
     injector.provide(A)
-    factory = injector.provide(fn)
+    factory = injector.provide(fn).resolve
 
     benchmark.pedantic(lambda i: factory(i), args=(injector,), iterations=ITERS, rounds=100)
 
 
 def test_custom_factory(benchmark):
-    def cstrategy(factory):
-        return factory()
+    def cstrategy(injectable, injector):
+        return injectable(injector)
 
     class A:
         pass
@@ -98,6 +98,43 @@ def test_custom_factory(benchmark):
 
     injector = Injector()
     injector.provide(A, A, cstrategy)
+    injector.provide(fn)
+
+    benchmark.pedantic(lambda i: injector[i], args=(fn,), iterations=ITERS, rounds=100)
+
+
+def test_custom_factory_single(benchmark):
+    cscope = dict()
+
+    def cstrategy(injectable, injector):
+        try:
+            return cscope[injectable]
+        except:
+            value = cscope[injectable] = injectable(injector)
+            return value
+
+    class A:
+        pass
+
+    def fn(a: A):
+        return a
+
+    injector = Injector()
+    injector.provide(A, A, cstrategy)
+    injector.provide(fn)
+
+    benchmark.pedantic(lambda i: injector[i], args=(fn,), iterations=ITERS, rounds=100)
+
+
+def test_scoped_singleton(benchmark):
+    class A:
+        pass
+
+    def fn(a: A):
+        return a
+
+    injector = Injector()
+    injector.provide(A, A, SCOPED_SINGLETON)
     injector.provide(fn)
 
     benchmark.pedantic(lambda i: injector[i], args=(fn,), iterations=ITERS, rounds=100)

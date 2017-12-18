@@ -42,7 +42,7 @@ def test_injectable_call():
     assert isinstance(injectable(injector), A)
 
 
-def test_injectable_call_err():
+def test_injectable_resolve_err():
     injector = Injector()
 
     class A:
@@ -50,11 +50,11 @@ def test_injectable_call_err():
 
     injectable = injector.provide(A)
     with pytest.raises(TypeError) as exc:
-        injectable()
-    exc.match("__call__ expected 1 arguments, got 0")
+        injectable.resolve()
+    exc.match("resolve\\(\\) takes exactly one argument \\(0 given\\)")
 
     with pytest.raises(TypeError) as exc:
-        injectable(None)
+        injectable.resolve(None)
     exc.match("Bad argument, must call with 'Injector' instance")
 
 

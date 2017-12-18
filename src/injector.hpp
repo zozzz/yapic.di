@@ -11,7 +11,11 @@ Injector* Injector::New(Injector* parent) {
 		return NULL;
 	}
 
-	if ((self->scope = PyDict_New()) == NULL) {
+	if ((self->injectables = PyDict_New()) == NULL) {
+		return NULL;
+	}
+
+	if ((self->singletons = PyDict_New()) == NULL) {
 		return NULL;
 	}
 
@@ -38,10 +42,12 @@ Injector* Injector::Clone(Injector* self, Injector* parent) {
 	if (result == NULL) {
 		return NULL;
 	}
-	result->scope = self->scope;
+	result->injectables = self->injectables;
+	result->singletons = self->singletons;
 	result->kwargs = self->kwargs;
 	result->parent = parent;
-	Py_XINCREF(result->scope);
+	Py_XINCREF(result->injectables);
+	Py_XINCREF(result->singletons);
 	Py_XINCREF(result->kwargs);
 	Py_XINCREF(parent);
 
@@ -53,7 +59,7 @@ PyObject* Injector::Find(Injector* injector, PyObject* id) {
 	assert(Injector::CheckExact((PyObject*) injector));
 
 	do {
-		PyObject* result = PyDict_GetItem(injector->scope, id);
+		PyObject* result = PyDict_GetItem(injector->injectables, id);
 		if (result != NULL) {
 			return result;
 		}
@@ -95,7 +101,7 @@ PyObject* Injector::Provide(Injector* self, PyObject* id, PyObject* value, PyObj
 	}
 	((Injectable*) value)->hash = hash;
 
-	if (PyDict_SetItem(self->scope, id, value) == -1) {
+	if (PyDict_SetItem(self->injectables, id, value) == -1) {
 		Py_DECREF(value);
 		return NULL;
 	}
@@ -131,7 +137,8 @@ PyObject* Injector::__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs
 
 
 void Injector::__dealloc__(Injector* self) {
-	Py_XDECREF(self->scope);
+	Py_XDECREF(self->injectables);
+	Py_XDECREF(self->singletons);
 	Py_XDECREF(self->kwargs);
 	Py_XDECREF(self->parent);
 	Super::__dealloc__(self);
