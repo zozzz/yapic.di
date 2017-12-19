@@ -400,14 +400,14 @@ namespace _injectable {
 	}
 
 	static PyObject* SingletonFactory(Injectable* self, Injector* injector, PyObject* singletons, int recursion) {
-		PyObject* inst = PyDict_GetItem(singletons, (PyObject*) self);
+		PyObject* inst = _PyDict_GetItem_KnownHash(singletons, (PyObject*) self, self->hash);
 		if (inst != NULL) {
 			Py_INCREF(inst);
 			return inst;
 		}
 
 		inst = _injectable::Factory<true>(self, injector, self->own_injector, recursion);
-		if (inst != NULL && PyDict_SetItem(singletons, (PyObject*) self, inst) < 0) {
+		if (inst != NULL && _PyDict_SetItem_KnownHash(singletons, (PyObject*) self, inst, self->hash) < 0) {
 			Py_DECREF(inst);
 			return NULL;
 		}
@@ -524,7 +524,7 @@ PyObject* Injectable::Resolve(Injectable* self, Injector* injector, int recursio
 				return _injectable::SingletonFactory(self, injector, injector->singletons, recursion);
 			} else {
 				Yapic::RLock::Auto lock(Module::State()->rlock_singletons);
-				return _injectable::SingletonFactory(self, injector, injector->singletons, recursion);
+				return _injectable::SingletonFactory(self, injector, Module::State()->singletons, recursion);
 			}
 		} else if (self->custom_strategy != NULL) {
 			// PyPtr<> factory = (PyObject*) InjectableFactory::New(self, injector, self->hash);

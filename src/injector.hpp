@@ -99,7 +99,7 @@ PyObject* Injector::Provide(Injector* self, PyObject* id, PyObject* value, PyObj
 	}
 	((Injectable*) value)->hash = hash;
 
-	if (PyDict_SetItem(self->injectables, id, value) == -1) {
+	if (_PyDict_SetItem_KnownHash(self->injectables, id, value, hash) == -1) {
 		Py_DECREF(value);
 		return NULL;
 	}
