@@ -399,6 +399,21 @@ namespace _injectable {
 		}
 	}
 
+	static PyObject* SingletonFactory(Injectable* self, Injector* injector, PyObject* singletons, int recursion) {
+		PyObject* inst = PyDict_GetItem(singletons, (PyObject*) self);
+		if (inst != NULL) {
+			Py_INCREF(inst);
+			return inst;
+		}
+
+		inst = _injectable::Factory<true>(self, injector, self->own_injector, recursion);
+		if (inst != NULL && PyDict_SetItem(singletons, (PyObject*) self, inst) < 0) {
+			Py_DECREF(inst);
+			return NULL;
+		}
+		return inst;
+	}
+
 } // end namespace _injectable
 
 
@@ -506,25 +521,10 @@ PyObject* Injectable::Resolve(Injectable* self, Injector* injector, int recursio
 	} else if (strategy & Strategy::FACTORY) {
 		if (strategy & Strategy::SINGLETON) {
 			if (strategy & Strategy::SCOPED) {
-				PyObject* inst = PyDict_GetItem(injector->singletons, (PyObject*) self);
-				if (inst == NULL) {
-					inst = _injectable::Factory<true>(self, injector, self->own_injector, recursion);
-					if (inst == NULL) {
-						return NULL;
-					}
-					if (PyDict_SetItem(injector->singletons, (PyObject*) self, inst) < 0) {
-						Py_DECREF(inst);
-						return NULL;
-					}
-				} else {
-					Py_INCREF(inst);
-				}
-				return inst;
-				// injector->injectables[self] ?= instance
+				return _injectable::SingletonFactory(self, injector, injector->singletons, recursion);
 			} else {
-				// lock begin
-				// Module::State()->globals[self] ?= instance
-				// lock end
+				Yapic::RLock::Auto lock(Module::State()->rlock_singletons);
+				return _injectable::SingletonFactory(self, injector, injector->singletons, recursion);
 			}
 		} else if (self->custom_strategy != NULL) {
 			// PyPtr<> factory = (PyObject*) InjectableFactory::New(self, injector, self->hash);

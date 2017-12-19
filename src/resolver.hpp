@@ -17,28 +17,33 @@ namespace ZenoDI {
 		static inline PyObject* ResolveByType(Injector* injector, Injector* resolve, PyObject* type, int recursion) {
 			assert(Injector::CheckExact(injector));
 
+			PyObject* result;
 			do {
-				PyObject* result = PyDict_GetItem(injector->injectables, type);
-				if (result != NULL) {
-					assert(Injectable::CheckExact(result));
-					return Injectable::Resolve((Injectable*) result, resolve, recursion);
-				}
-			} while (injector = injector->parent);
+				result = PyDict_GetItem(injector->injectables, type);
+			} while (result == NULL && (injector = injector->parent));
+
+			if (result != NULL) {
+				assert(Injectable::CheckExact(result));
+				return Injectable::Resolve((Injectable*) result, resolve, recursion);
+			}
 			return NULL;
 		}
 
 		static inline PyObject* ResolveByKw(Injector* injector, Injector* resolve, PyObject* name, PyObject* type, int recursion) {
 			assert(Injector::CheckExact(injector));
 
+			PyObject* kwargs;
+			KwOnly* kw;
+			PyObject* val;
 			do {
-				PyObject* kwargs = injector->kwargs;
+				kwargs = injector->kwargs;
 				if (kwargs != NULL) {
 					assert(PyList_CheckExact(kwargs));
 
 					for (Py_ssize_t i=0 ; i < PyList_GET_SIZE(kwargs); i++) {
-						KwOnly* kw = (KwOnly*) PyList_GET_ITEM(kwargs, i);
+						kw = (KwOnly*) PyList_GET_ITEM(kwargs, i);
 						assert(KwOnly::CheckExact(kw));
-						PyObject* val = KwOnly::Resolve(kw, resolve, name, type, recursion);
+						val = KwOnly::Resolve(kw, resolve, name, type, recursion);
 						if (val == NULL && PyErr_Occurred()) {
 							return NULL;
 						} else {

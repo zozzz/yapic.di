@@ -58,13 +58,11 @@ Injector* Injector::Clone(Injector* self, Injector* parent) {
 PyObject* Injector::Find(Injector* injector, PyObject* id) {
 	assert(Injector::CheckExact((PyObject*) injector));
 
+	PyObject* result;
 	do {
-		PyObject* result = PyDict_GetItem(injector->injectables, id);
-		if (result != NULL) {
-			return result;
-		}
-	} while (injector = injector->parent);
-	return NULL;
+		result = PyDict_GetItem(injector->injectables, id);
+	} while (result == NULL && (injector = injector->parent));
+	return result;
 }
 
 PyObject* Injector::Provide(Injector* self, PyObject* id) {
@@ -160,12 +158,13 @@ PyObject* Injector::get(Injector* self, PyObject* id) {
 
 PyObject* Injector::__mp_getitem__(Injector* self, PyObject* id) {
 	PyObject* injectable = Injector::Find(self, id); // borrowed
-	if (injectable == NULL) {
+	if (injectable != NULL) {
+		assert(Injectable::CheckExact(injectable));
+		return Injectable::Resolve((Injectable*) injectable, self, 0);
+	} else {
 		PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_InjectableNotFound, id);
 		return NULL;
 	}
-	assert(Injectable::CheckExact(injectable));
-	return Injectable::Resolve((Injectable*) injectable, self, 0);
 }
 
 // TODO: doksiba leírni, hogy ez nem cachel, és ha sűrűn kell meghívni,

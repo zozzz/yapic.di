@@ -1,4 +1,5 @@
-from zeno.di import Injector, SCOPED_SINGLETON
+import threading
+from zeno.di import Injector, SCOPED_SINGLETON, SINGLETON
 
 ITERS = 20000
 
@@ -138,3 +139,36 @@ def test_scoped_singleton(benchmark):
     injector.provide(fn)
 
     benchmark.pedantic(lambda i: injector[i], args=(fn,), iterations=ITERS, rounds=100)
+
+
+def test_singleton(benchmark):
+    class A:
+        pass
+
+    def fn(a: A):
+        return a
+
+    injector = Injector()
+    injector.provide(A, A, SINGLETON)
+    injector.provide(fn)
+
+    benchmark.pedantic(lambda i: injector[i], args=(fn,), iterations=ITERS, rounds=100)
+
+
+def test_threadlocal(benchmark):
+    tl = threading.local()
+
+    class A:
+        pass
+
+    def fn(factory):
+        try:
+            return tl.key
+        except AttributeError:
+            value = factory()
+            tl.key = value
+            return value
+
+    benchmark.pedantic(lambda i: fn(i), args=(A,), iterations=ITERS, rounds=100)
+
+    assert fn(A) is fn(A)

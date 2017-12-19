@@ -13,6 +13,7 @@
 #include <yapic/type.hpp>
 #include <yapic/pyptr.hpp>
 #include <yapic/string-builder.hpp>
+#include <yapic/thread.hpp>
 
 #include "./errors.hpp"
 
@@ -192,6 +193,7 @@ public:
 	ModuleVar STR_ARGS;
 	ModuleVar STR_PARAMETERS;
 	ModuleVar STR_MODULE;
+	ModuleVar singletons;
 
 	ModuleVar FACTORY;
 	ModuleVar VALUE;
@@ -202,6 +204,8 @@ public:
 	ModuleExc ExcProvideError;
 	ModuleExc ExcInjectError;
 	ModuleExc ExcNoKwOnly;
+
+	Yapic::RLock* rlock_singletons;
 
 	PyObject* MethodWrapperType;
 
@@ -215,6 +219,7 @@ public:
 		state->STR_ARGS = "__args__";
 		state->STR_PARAMETERS = "__parameters__";
 		state->STR_MODULE = "__module__";
+		state->singletons = PyDict_New();
 
 		state->VALUE.Value(Injectable::Strategy::VALUE).Export("VALUE");
 		state->FACTORY.Value(Injectable::Strategy::FACTORY).Export("FACTORY");
@@ -241,14 +246,27 @@ public:
 		state->MethodWrapperType = (PyObject*) Py_TYPE(method);
 		Py_DECREF(method);
 
-		Injector::Register(module);
-		Injectable::Register(module);
-		BoundInjectable::Register(module);
-		InjectableFactory::Register(module);
-		ValueResolver::Register(module);
-		KwOnly::Register(module);
+		if (!Injector::Register(module) ||
+			!Injectable::Register(module) ||
+			!BoundInjectable::Register(module) ||
+			!InjectableFactory::Register(module) ||
+			!ValueResolver::Register(module) ||
+			!KwOnly::Register(module)) {
+			return -1;
+		}
+
+		state->rlock_singletons = new Yapic::RLock();
+		if (state->rlock_singletons->IsNull()) {
+			return -1;
+		}
 
 		return 0;
+	}
+
+	static inline int __clear__(PyObject* module) {
+		Self* state = State(module);
+		delete state->rlock_singletons;
+		return Super::__clear__(module);
 	}
 };
 

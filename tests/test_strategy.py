@@ -46,3 +46,15 @@ def test_strategy_scoped_singleton():
     assert isinstance(injector[A], A)
     assert injector[A] is injector[A]
     assert injector[A] is injector[A]
+
+
+def test_strategy_singleton():
+    class A:
+        pass
+
+    injector = Injector()
+    injector.provide(A, A, SINGLETON)
+
+    assert isinstance(injector[A], A)
+    assert injector[A] is injector[A]
+    assert injector[A] is injector[A]
