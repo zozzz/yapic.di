@@ -1,5 +1,5 @@
 import threading
-from zeno.di import Injector, SCOPED_SINGLETON, SINGLETON
+from zeno.di import Injector, SCOPED_SINGLETON, SINGLETON, VALUE
 
 ITERS = 20000
 
@@ -172,3 +172,17 @@ def test_threadlocal(benchmark):
     benchmark.pedantic(lambda i: fn(i), args=(A,), iterations=ITERS, rounds=100)
 
     assert fn(A) is fn(A)
+
+
+def test_value(benchmark):
+    class A:
+        pass
+
+    injector = Injector()
+    injector.provide("A", A, VALUE)
+    injector.provide("A", A, VALUE)
+
+    def fn(id):
+        return injector[id]
+
+    benchmark.pedantic(lambda i: fn(i), args=("A",), iterations=ITERS, rounds=100)
