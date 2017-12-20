@@ -57,6 +57,7 @@ public:
 
 class Injectable: public Yapic::Type<Injectable, Yapic::Object> {
 public:
+	typedef PyObject* (*StrategyCallback)(Injectable* self, Injector* injector, int recursion);
 	using UnicodeBuilder = Yapic::UnicodeBuilder<1024>;
 
 	enum ValueType {
@@ -68,10 +69,11 @@ public:
 	enum Strategy {
 		FACTORY = 1,
 		VALUE = 2,
-		SINGLETON = 4,
-		SCOPED = 8,
-		CUSTOM = 16,
-		ALL = FACTORY | VALUE | SINGLETON | SCOPED | CUSTOM
+		SINGLETON = 3,
+		SCOPED = 4,
+		CUSTOM = 5,
+		MAX = 5
+		// ALL = FACTORY | VALUE | SINGLETON | SCOPED | CUSTOM
 	};
 
 	PyObject* value;
@@ -84,12 +86,13 @@ public:
 	Py_hash_t hash;
 	ValueType value_type;
 	Strategy strategy;
+	// StrategyCallback strategy;
 
 	Yapic_PrivateNew;
 
 	static Injectable* New(PyObject* value, Strategy strategy, PyObject* provide);
 	static Injectable* New(PyObject* value, PyObject* strategy, PyObject* provide);
-	static PyObject* Resolve(Injectable* self, Injector* injector, int recursion);
+	static inline PyObject* Resolve(Injectable* self, Injector* injector, int recursion);
 	static bool ToString(Injectable* self, UnicodeBuilder* builder, int level);
 	// static PyObject* Exec(Injectable* self, Injector* injector);
 	// egy injectort vár paraméternek, és így vissza tudja adni azt, amit kell
@@ -223,15 +226,8 @@ public:
 
 		state->VALUE.Value(Injectable::Strategy::VALUE).Export("VALUE");
 		state->FACTORY.Value(Injectable::Strategy::FACTORY).Export("FACTORY");
-		state->SINGLETON.Value(
-			Injectable::Strategy::SINGLETON |
-			Injectable::Strategy::SCOPED |
-			Injectable::Strategy::FACTORY
-		).Export("SCOPED_SINGLETON");
-		state->GLOBAL.Value(
-			Injectable::Strategy::SINGLETON |
-			Injectable::Strategy::FACTORY
-		).Export("SINGLETON");
+		state->SINGLETON.Value(Injectable::Strategy::SCOPED).Export("SCOPED_SINGLETON");
+		state->GLOBAL.Value(Injectable::Strategy::SINGLETON).Export("SINGLETON");
 
 		state->ExcBase.Define("InjectorError", PyExc_TypeError);
 		state->ExcProvideError.Define("ProvideError", state->ExcBase);

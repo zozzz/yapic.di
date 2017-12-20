@@ -414,6 +414,39 @@ namespace _injectable {
 		return inst;
 	}
 
+
+	static PyObject* sfactory(Injectable* self, Injector* injector, int recursion) {
+		return _injectable::Factory<true>(self, injector, self->own_injector, recursion);
+	}
+
+	static PyObject* ssingleton(Injectable* self, Injector* injector, int recursion) {
+		Yapic::RLock::Auto lock(Module::State()->rlock_singletons);
+		return _injectable::SingletonFactory(self, injector, Module::State()->singletons, recursion);
+	}
+
+	static PyObject* sscoped(Injectable* self, Injector* injector, int recursion) {
+		return _injectable::SingletonFactory(self, injector, injector->singletons, recursion);
+	}
+
+	static PyObject* svalue(Injectable* self, Injector* injector, int recursion) {
+		Py_INCREF(self->value);
+		return self->value;
+	}
+
+	static PyObject* scustom(Injectable* self, Injector* injector, int recursion) {
+		assert(self->custom_strategy != NULL);
+		return PyObject_CallFunctionObjArgs(self->custom_strategy, self, injector, NULL);
+	}
+
+	static const Injectable::StrategyCallback strategy_callbacks[] = {
+		NULL,
+		&sfactory,
+		&svalue,
+		&ssingleton,
+		&sscoped,
+		&scustom
+	};
+
 } // end namespace _injectable
 
 
@@ -432,7 +465,7 @@ Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyOb
 	self->custom_strategy = NULL;
 	self->strategy = strategy;
 
-	if (strategy & Injectable::Strategy::FACTORY) {
+	if (strategy != Injectable::Strategy::VALUE) {
 		if (PyType_Check(value)) {
 			self->value_type = Injectable::ValueType::CLASS;
 
@@ -492,7 +525,7 @@ Injectable* Injectable::New(PyObject* value, PyObject* strategy, PyObject* provi
 				PyErr_Format(Module::State()->ExcProvideError, ZenoDI_Err_GotInvalidStrategy, strategy);
 				return NULL;
 			} else {
-				strat = Injectable::Strategy::CUSTOM | Injectable::Strategy::FACTORY;
+				strat = Injectable::Strategy::CUSTOM;
 				Injectable* injectable = Injectable::New(value, strat, provide);
 				if (injectable == NULL) {
 					return NULL;
@@ -503,7 +536,7 @@ Injectable* Injectable::New(PyObject* value, PyObject* strategy, PyObject* provi
 			}
 		} else {
 			strat = (Injectable::Strategy) PyLong_AS_LONG(strategy);
-			if (!(strat & Injectable::Strategy::ALL)) {
+			if (strat <= 0 || strat >= Injectable::Strategy::MAX) {
 				PyErr_Format(Module::State()->ExcProvideError, ZenoDI_Err_GotInvalidStrategyInt, strategy);
 				return NULL;
 			}
@@ -515,48 +548,78 @@ Injectable* Injectable::New(PyObject* value, PyObject* strategy, PyObject* provi
 
 
 PyObject* Injectable::Resolve(Injectable* self, Injector* injector, int recursion) {
-	auto strategy = self->strategy;
-	if (strategy == Strategy::FACTORY) {
-		return _injectable::Factory<true>(self, injector, self->own_injector, recursion);
-	} else if (strategy & Strategy::FACTORY) {
-		if (strategy & Strategy::SINGLETON) {
-			if (strategy & Strategy::SCOPED) {
-				return _injectable::SingletonFactory(self, injector, injector->singletons, recursion);
-			} else {
-				Yapic::RLock::Auto lock(Module::State()->rlock_singletons);
-				return _injectable::SingletonFactory(self, injector, Module::State()->singletons, recursion);
-			}
-		} else if (self->custom_strategy != NULL) {
-			// PyPtr<> factory = (PyObject*) InjectableFactory::New(self, injector, self->hash);
-			// if (factory.IsNull()) {
-			// 	return NULL;
-			// }
-			// return PyObject_CallFunctionObjArgs(self->custom_strategy, factory, NULL);
+	assert(self->strategy < Injectable::Strategy::MAX);
+	return _injectable::strategy_callbacks[self->strategy](self, injector, recursion);
+
+	// switch (self->strategy) {
+	// 	case Injectable::Strategy::FACTORY:
+	// 		return _injectable::Factory<true>(self, injector, self->own_injector, recursion);
+
+	// 	case Injectable::Strategy::VALUE:
+	// 		Py_INCREF(self->value);
+	// 		return self->value;
+
+	// 	case Injectable::Strategy::SINGLETON: {
+	// 		Yapic::RLock::Auto lock(Module::State()->rlock_singletons);
+	// 		return _injectable::SingletonFactory(self, injector, Module::State()->singletons, recursion);
+	// 	}
+
+	// 	case Injectable::Strategy::SCOPED:
+	// 		Py_RETURN_NONE;
+	// 		// return _injectable::SingletonFactory(self, injector, injector->singletons, recursion);
+
+	// 	case Injectable::Strategy::CUSTOM:
+	// 		assert(self->custom_strategy != NULL);
+	// 		return PyObject_CallFunctionObjArgs(self->custom_strategy, self, injector, NULL);
+
+	// 	default:
+	// 		assert(0);
+	// 		return NULL;
+	// }
 
 
-			// PyObject* args = PyTuple_New(2);
-			// if (args != NULL) {
-			// 	Py_INCREF(self);
-			// 	PyTuple_SET_ITEM(args, 0, (PyObject*) self);
-			// 	Py_INCREF(injector);
-			// 	PyTuple_SET_ITEM(args, 1, (PyObject*) injector);
-			// 	// PyObject* res = PyObject_Call(self->custom_strategy, args, NULL);
-			// 	PyObject* res = Py_TYPE(self->custom_strategy)->tp_call(self->custom_strategy, args, NULL);
-			// 	Py_DECREF(args);
-			// 	return res;
-			// } else {
-			// 	return NULL;
-			// }
+	// auto strategy = self->strategy;
+	// if (strategy == Strategy::FACTORY) {
+	// 	return _injectable::Factory<true>(self, injector, self->own_injector, recursion);
+	// } else if (strategy & Strategy::FACTORY) {
+	// 	if (strategy & Strategy::SINGLETON) {
+	// 		if (strategy & Strategy::SCOPED) {
+	// 			return _injectable::SingletonFactory(self, injector, injector->singletons, recursion);
+	// 		} else {
+	// 			Yapic::RLock::Auto lock(Module::State()->rlock_singletons);
+	// 			return _injectable::SingletonFactory(self, injector, Module::State()->singletons, recursion);
+	// 		}
+	// 	} else if (self->custom_strategy != NULL) {
+	// 		// PyPtr<> factory = (PyObject*) InjectableFactory::New(self, injector, self->hash);
+	// 		// if (factory.IsNull()) {
+	// 		// 	return NULL;
+	// 		// }
+	// 		// return PyObject_CallFunctionObjArgs(self->custom_strategy, factory, NULL);
 
 
-			return PyObject_CallFunctionObjArgs(self->custom_strategy, self, injector, NULL);
-		}
-	} else if (strategy & Strategy::VALUE) {
-		Py_INCREF(self->value);
-		return self->value;
-	}
-	assert(0);
-	return NULL;
+	// 		// PyObject* args = PyTuple_New(2);
+	// 		// if (args != NULL) {
+	// 		// 	Py_INCREF(self);
+	// 		// 	PyTuple_SET_ITEM(args, 0, (PyObject*) self);
+	// 		// 	Py_INCREF(injector);
+	// 		// 	PyTuple_SET_ITEM(args, 1, (PyObject*) injector);
+	// 		// 	// PyObject* res = PyObject_Call(self->custom_strategy, args, NULL);
+	// 		// 	PyObject* res = Py_TYPE(self->custom_strategy)->tp_call(self->custom_strategy, args, NULL);
+	// 		// 	Py_DECREF(args);
+	// 		// 	return res;
+	// 		// } else {
+	// 		// 	return NULL;
+	// 		// }
+
+
+	// 		return PyObject_CallFunctionObjArgs(self->custom_strategy, self, injector, NULL);
+	// 	}
+	// } else if (strategy & Strategy::VALUE) {
+	// 	Py_INCREF(self->value);
+	// 	return self->value;
+	// }
+	// assert(0);
+	// return NULL;
 }
 
 
