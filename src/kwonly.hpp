@@ -11,6 +11,11 @@ KwOnly* KwOnly::New(PyObject* getter) {
 		return NULL;
 	}
 
+	if (PyType_Check(getter) || !PyCallable_Check(getter)) {
+		PyErr_SetString(Module::State()->ExcProvideError, ZenoDI_Err_CallableArgument);
+		return NULL;
+	}
+
 	self->getter = Injectable::New(getter, Injectable::Strategy::FACTORY, NULL);
 	if (self->getter == NULL) {
 		return NULL;
@@ -50,7 +55,9 @@ PyObject* KwOnly::Resolve(KwOnly* self, Injector* injector, PyObject* name, PyOb
 		ValueResolver::SetDefaultValue(self->type_resolver, type);
 	}
 
-	PyObject* value = _injectable::Factory<false>(self->getter, injector, NULL, recursion);
+	assert(PyCallable_Check(self->getter->value));
+	// PyObject* value = Injectable::Resolve(self->getter, injector, recursion);
+	PyObject* value = _injectable::KwOnlyGetter::Get(self->getter, injector, NULL, recursion);
 	if (value == NULL) {
 		PyObject* exc = PyErr_Occurred(); // borrowed
 		if (PyErr_GivenExceptionMatches(exc, Module::State()->ExcNoKwOnly)) {

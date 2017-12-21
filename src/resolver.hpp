@@ -54,9 +54,8 @@ namespace ZenoDI {
 			if (result != NULL) {
 				assert(Injectable::CheckExact(result));
 				return Injectable::Resolve((Injectable*) result, injector, recursion);
-			} else {
-				return NULL;
 			}
+			assert(PyErr_Occurred() == NULL);
 
 			// maybe forwardref...
 			if (AllowForwardRef) {
@@ -99,21 +98,26 @@ ValueResolver* ValueResolver::New(PyObject* name, PyObject* id, PyObject* defaul
 	}
 
 	Py_XINCREF(name);
-	Py_XINCREF(id);
 	Py_XINCREF(default_value);
 	Py_XINCREF(globals);
 
 	self->name = name;
-	self->id = id;
 	self->default_value = default_value;
 	self->globals = globals;
-	self->id_hash = PyObject_Hash(id);
 
-	if (self->id_hash == -1) {
-		Py_DECREF(self);
-		return NULL;
+	if (id != NULL) {
+		Py_INCREF(id);
+		self->id = id;
+		self->id_hash = PyObject_Hash(id);
+
+		if (self->id_hash == -1) {
+			Py_DECREF(self);
+			return NULL;
+		}
+	} else {
+		self->id = NULL;
+		self->id_hash = 0;
 	}
-
 	return self;
 }
 

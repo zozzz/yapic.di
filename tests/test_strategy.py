@@ -10,10 +10,7 @@ def test_strategy_value():
 
     assert injector["V"] == "VALUE"
     assert injector["V"] is provided
-
-    with pytest.raises(InjectError) as exc:
-        injector.provide("V", provided, VALUE)()
-    exc.match("This injectable is not support '__call__', because is not a factory")
+    assert injector.provide("V", provided, VALUE)(injector) == "VALUE"
 
 
 def test_strategy_custom():
