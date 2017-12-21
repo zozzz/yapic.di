@@ -155,6 +155,27 @@ def test_injector_kwonly():
     assert injector.exec(fn) == "NICE"
 
 
+def test_injector_kwonly2():
+    injector = Injector()
+
+    class Config(dict):
+        def __init__(self):
+            super().__init__(some_key="OK")
+
+        def __call__(self, *, name, type):
+            assert name == "some_key"
+            assert type is str
+            return self[name]
+
+    def fn(*, some_key: str):
+        assert some_key == "OK"
+        return "NICE"
+
+    injector.provide(KwOnly(Config()))
+
+    assert injector.exec(fn) == "NICE"
+
+
 def test_injector_own_kwonly():
     injector = Injector()
 
@@ -285,6 +306,13 @@ def test_injector_kwonly_def_error():
     with pytest.raises(ProvideError) as exc:
         injector.provide(KwOnly(get_kwargs3))
     exc.match("Keyword argument resolver function muts have 'name' keyword only argument")
+
+    class X:
+        pass
+
+    with pytest.raises(ProvideError) as exc:
+        injector.provide(KwOnly(X))
+    exc.match("Argument must be callable.")
 
 
 def test_injector_recursion():

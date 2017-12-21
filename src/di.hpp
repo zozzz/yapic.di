@@ -89,6 +89,7 @@ public:
 	// ValueType value_type;
 	// Strategy strategy;
 	StrategyCallback strategy;
+	StrategyCallback get_value;
 
 	Yapic_PrivateNew;
 

@@ -110,6 +110,7 @@ namespace _injectable {
 					defaults = PyFunction_GET_DEFAULTS(func);
 					if (defaults == NULL) {
 						for (int i=offset ; i<code->co_argcount ; ++i) {
+							// TODO: ha nincs típusa, akkor hibát kell adni, mivel nem is tudunk mit injectálni oda
 							PyObject* resolver = NewVR(
 								PyTuple_GET_ITEM(code->co_varnames, i), annots, NULL, aliases, globals);
 							if (resolver == NULL) {
@@ -536,6 +537,9 @@ namespace _injectable {
 				register PyObject* tmp = self->args;
 				Py_ssize_t argc = tmp == NULL ? 0 : PyTuple_GET_SIZE(tmp);
 				PyObject* args = PyTuple_New(argc);
+				if (argc == 0) {
+					return args;
+				}
 				if (args != NULL) {
 					for (Py_ssize_t i = 0 ; i<argc ; i++) {
 						ValueResolver* resolver = (ValueResolver*) PyTuple_GET_ITEM(tmp, i);
@@ -552,7 +556,7 @@ namespace _injectable {
 						Py_DECREF(args);
 						return NULL;
 				}
-				return Py_None;
+				return NULL;
 			}
 
 			static inline PyObject* GetCallKwargs(Injectable* self, Injector* injector, Injector* owni, int recursion) {
@@ -570,7 +574,7 @@ namespace _injectable {
 
 					while (PyDict_Next(kwargs, &pos, &key, &value)) {
 						PyObject* arg = ValueResolver::Resolve<AllowKwOnly>((ValueResolver*) value, injector, owni, recursion);
-						if (arg == NULL || PyDict_SetItem(kwargs, key, arg) < 0) {
+						if (arg == NULL || PyDict_SetItem(result, key, arg) < 0) {
 							goto error;
 						}
 					}
@@ -580,7 +584,7 @@ namespace _injectable {
 						Py_XDECREF(result);
 						return NULL;
 				}
-				return NULL;
+				return Py_None;
 			}
 		};
 
@@ -655,8 +659,7 @@ namespace _injectable {
 					while (PyDict_Next(attrs, &apos, &akey, &avalue)) {
 						assert(ValueResolver::CheckExact(avalue));
 						value = ValueResolver::Resolve<false>((ValueResolver*) avalue, injector, owni, recursion);
-						if (value != NULL && PyObject_GenericSetAttr(obj, akey, value) < 0) {
-							Py_XDECREF(value);
+						if (value == NULL || PyObject_GenericSetAttr(obj, akey, value) < 0) {
 							return false;
 						}
 					}
@@ -687,8 +690,9 @@ namespace _injectable {
 		};
 
 		using ClassValue = Value_Invoke<InvokeClass<true>>;
-		using FunctionValue = Value_Invoke<InvokeClass<true>>;
-		using BasicValue = Value_Invoke<InvokeClass<true>>;
+		using FunctionValue = Value_Invoke<InvokeFn<true>>;
+		using KwOnlyGetter = Value_Invoke<InvokeFn<false>>;
+		using BasicValue = Value_Const;
 
 	// } /* end namespace __xxx */
 
@@ -747,6 +751,7 @@ Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyOb
 	if (strategy != Injectable::Strategy::VALUE) {
 		if (PyType_Check(value)) {
 			self->strategy = _injectable::GetStrategy<_injectable::ClassValue>(strategy);
+			self->get_value = &_injectable::ClassValue::Get;
 
 			PyPtr<> typeAliases = ResolveTypeVars(value);
 			if (typeAliases.IsNull() && PyErr_Occurred()) {
@@ -772,6 +777,7 @@ Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyOb
 			}
 		} else {
 			self->strategy = _injectable::GetStrategy<_injectable::FunctionValue>(strategy);
+			self->get_value = &_injectable::FunctionValue::Get;
 			if (!_injectable::Collect::Callable::Arguments(self, value, NULL, 0)) {
 				return NULL;
 			}
@@ -785,6 +791,7 @@ Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyOb
 		}
 	} else {
 		self->strategy = _injectable::GetStrategy<_injectable::BasicValue>(Injectable::Strategy::VALUE);
+		self->get_value = &_injectable::BasicValue::Get;
 
 		if (provide != NULL) {
 			PyErr_SetString(Module::State()->ExcProvideError, ZenoDI_Err_GotProvideForValue);
@@ -880,8 +887,9 @@ PyObject* Injectable::__call__(Injectable* self, PyObject* args, PyObject** kwar
 		if (PyTuple_CheckExact(args) && PyTuple_GET_SIZE(args) == 1) {
 			Injector* injector = (Injector*) PyTuple_GET_ITEM(args, 0);
 			if (Injector::CheckExact(injector)) {
-				Py_RETURN_NONE; // TODO: úgy meghívni a factoryt, hogy nincs felhasználva a stratégia
+				// Py_RETURN_NONE; // TODO: úgy meghívni a factoryt, hogy nincs felhasználva a stratégia
 				// return _injectable::Factory<true>(self, injector, self->own_injector, 0);
+				return self->get_value(self, injector, self->own_injector, 0);
 			}
 		}
 		PyErr_SetString(PyExc_TypeError, ZenoDI_Err_OneInjectorArg);
