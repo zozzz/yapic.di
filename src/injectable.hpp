@@ -404,6 +404,8 @@ namespace _injectable {
 		if (inst != NULL) {
 			Py_INCREF(inst);
 			return inst;
+		} else {
+			PyErr_Clear();
 		}
 
 		inst = _injectable::Factory<true>(self, injector, self->own_injector, recursion);
@@ -441,10 +443,10 @@ namespace _injectable {
 	// static const Injectable::StrategyCallback strategy_callbacks[] = {
 	// 	NULL,
 	// 	&sfactory,
-	// 	&svalue,
 	// 	&ssingleton,
 	// 	&sscoped,
-	// 	&scustom
+	// 	&scustom,
+	// 	&svalue
 	// };
 
 } // end namespace _injectable
@@ -575,56 +577,13 @@ PyObject* Injectable::Resolve(Injectable* self, Injector* injector, int recursio
 			assert(0);
 			return NULL;
 	}
-
-
-	// auto strategy = self->strategy;
-	// if (strategy == Strategy::FACTORY) {
-	// 	return _injectable::Factory<true>(self, injector, self->own_injector, recursion);
-	// } else if (strategy & Strategy::FACTORY) {
-	// 	if (strategy & Strategy::SINGLETON) {
-	// 		if (strategy & Strategy::SCOPED) {
-	// 			return _injectable::SingletonFactory(self, injector, injector->singletons, recursion);
-	// 		} else {
-	// 			Yapic::RLock::Auto lock(Module::State()->rlock_singletons);
-	// 			return _injectable::SingletonFactory(self, injector, Module::State()->singletons, recursion);
-	// 		}
-	// 	} else if (self->custom_strategy != NULL) {
-	// 		// PyPtr<> factory = (PyObject*) InjectableFactory::New(self, injector, self->hash);
-	// 		// if (factory.IsNull()) {
-	// 		// 	return NULL;
-	// 		// }
-	// 		// return PyObject_CallFunctionObjArgs(self->custom_strategy, factory, NULL);
-
-
-	// 		// PyObject* args = PyTuple_New(2);
-	// 		// if (args != NULL) {
-	// 		// 	Py_INCREF(self);
-	// 		// 	PyTuple_SET_ITEM(args, 0, (PyObject*) self);
-	// 		// 	Py_INCREF(injector);
-	// 		// 	PyTuple_SET_ITEM(args, 1, (PyObject*) injector);
-	// 		// 	// PyObject* res = PyObject_Call(self->custom_strategy, args, NULL);
-	// 		// 	PyObject* res = Py_TYPE(self->custom_strategy)->tp_call(self->custom_strategy, args, NULL);
-	// 		// 	Py_DECREF(args);
-	// 		// 	return res;
-	// 		// } else {
-	// 		// 	return NULL;
-	// 		// }
-
-
-	// 		return PyObject_CallFunctionObjArgs(self->custom_strategy, self, injector, NULL);
-	// 	}
-	// } else if (strategy & Strategy::VALUE) {
-	// 	Py_INCREF(self->value);
-	// 	return self->value;
-	// }
-	// assert(0);
-	// return NULL;
 }
 
 
 PyObject* Injectable::__call__(Injectable* self, PyObject* args, PyObject** kwargs) {
 	if (self->strategy != Injectable::Strategy::VALUE) {
-		if (args != NULL && PyTuple_CheckExact(args) && PyTuple_GET_SIZE(args) == 1) {
+		assert(args != NULL);
+		if (PyTuple_CheckExact(args) && PyTuple_GET_SIZE(args) == 1) {
 			Injector* injector = (Injector*) PyTuple_GET_ITEM(args, 0);
 			if (Injector::CheckExact(injector)) {
 				return _injectable::Factory<true>(self, injector, self->own_injector, 0);

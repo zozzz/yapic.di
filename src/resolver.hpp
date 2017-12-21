@@ -14,21 +14,6 @@
 
 namespace ZenoDI {
 	namespace _resolver {
-		static inline PyObject* ResolveByType(Injector* injector, Injector* resolve, PyObject* type, int recursion) {
-			assert(Injector::CheckExact(injector));
-
-			PyObject* result;
-			do {
-				result = PyDict_GetItem(injector->injectables, type);
-			} while (result == NULL && (injector = injector->parent));
-
-			if (result != NULL) {
-				assert(Injectable::CheckExact(result));
-				return Injectable::Resolve((Injectable*) result, resolve, recursion);
-			}
-			return NULL;
-		}
-
 		static inline PyObject* ResolveByKw(Injector* injector, Injector* resolve, PyObject* name, PyObject* type, int recursion) {
 			assert(Injector::CheckExact(injector));
 
@@ -44,10 +29,10 @@ namespace ZenoDI {
 						kw = (KwOnly*) PyList_GET_ITEM(kwargs, i);
 						assert(KwOnly::CheckExact(kw));
 						val = KwOnly::Resolve(kw, resolve, name, type, recursion);
-						if (val == NULL && PyErr_Occurred()) {
-							return NULL;
-						} else {
+						if (val != NULL) {
 							return val;
+						} else if (PyErr_Occurred()) {
+							return NULL;
 						}
 					}
 				}
@@ -57,15 +42,21 @@ namespace ZenoDI {
 		}
 
 		template<bool AllowForwardRef>
-		static inline PyObject* GetByType(ValueResolver* self, Injector* injector, Injector* own_injector, PyObject* type, int recursion) {
-			PyObject* result;
+		static inline PyObject* GetByType(ValueResolver* self, Injector* injector, Injector* own_injector, PyObject* type, Py_hash_t thash, int recursion) {
+			PyObject* result = NULL;
 
 			if (own_injector != NULL) {
-				result = _resolver::ResolveByType(own_injector, injector, type, recursion);
-				ValueResulver_ReturnIfOk(result)
+				result = Injector::Find(own_injector, type, thash);
 			}
-			result = _resolver::ResolveByType(injector, injector, type, recursion);
-			ValueResulver_ReturnIfOk(result)
+			if (result == NULL) {
+				result = Injector::Find(injector, type, thash);
+			}
+			if (result != NULL) {
+				assert(Injectable::CheckExact(result));
+				return Injectable::Resolve((Injectable*) result, injector, recursion);
+			} else {
+				return NULL;
+			}
 
 			// maybe forwardref...
 			if (AllowForwardRef) {
@@ -73,7 +64,11 @@ namespace ZenoDI {
 				if (PyUnicode_CheckExact(type) && globals != NULL) {
 					PyObject* fwType = ResolveNameFromGlobals(globals, type);
 					if (fwType != NULL) {
-						result = GetByType<false>(self, injector, own_injector, fwType, recursion);
+						Py_hash_t fwHash = PyObject_Hash(fwType);
+						if (fwHash == -1) {
+							PyErr_Clear();
+						}
+						result = GetByType<false>(self, injector, own_injector, fwType, fwHash, recursion);
 						Py_DECREF(fwType);
 						ValueResulver_ReturnIfOk(result)
 					} else if (PyErr_Occurred()) {
@@ -112,6 +107,12 @@ ValueResolver* ValueResolver::New(PyObject* name, PyObject* id, PyObject* defaul
 	self->id = id;
 	self->default_value = default_value;
 	self->globals = globals;
+	self->id_hash = PyObject_Hash(id);
+
+	if (self->id_hash == -1) {
+		Py_DECREF(self);
+		return NULL;
+	}
 
 	return self;
 }
@@ -135,7 +136,7 @@ PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector, Inject
 	}
 
 	if (type) {
-		result = _resolver::GetByType<true>(self, injector, own_injector, type, recursion);
+		result = _resolver::GetByType<true>(self, injector, own_injector, type, self->id_hash, recursion);
 		ValueResulver_ReturnIfOk(result);
 	}
 

@@ -29,7 +29,8 @@ public:
 	Injector* parent;
 
 	static Injector* New(Injector* parent);
-	static PyObject* Find(Injector* injector, PyObject* id);
+	static inline PyObject* Find(Injector* injector, PyObject* id);
+	static inline PyObject* Find(Injector* injector, PyObject* id, Py_hash_t hash);
 	static PyObject* Provide(Injector* injector, PyObject* id);
 	static PyObject* Provide(Injector* injector, PyObject* id, PyObject* value, PyObject* strategy, PyObject* provide);
 	static void SetParent(Injector* injector, Injector* parent);
@@ -151,6 +152,7 @@ public:
 	PyObject* name;
 	PyObject* default_value;
 	PyObject* globals;
+	Py_hash_t id_hash;
 
 	Yapic_PrivateNew;
 

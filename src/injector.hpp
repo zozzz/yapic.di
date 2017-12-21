@@ -55,15 +55,31 @@ Injector* Injector::Clone(Injector* self, Injector* parent) {
 }
 
 
-PyObject* Injector::Find(Injector* injector, PyObject* id) {
+PyObject* Injector::Find(Injector* injector, PyObject* id, Py_hash_t hash) {
 	assert(Injector::CheckExact((PyObject*) injector));
 
 	PyObject* result;
 	do {
-		result = PyDict_GetItem(injector->injectables, id);
+		result = _PyDict_GetItem_KnownHash(injector->injectables, id, hash);
 	} while (result == NULL && (injector = injector->parent));
 	return result;
 }
+
+
+PyObject* Injector::Find(Injector* injector, PyObject* id) {
+	assert(Injector::CheckExact((PyObject*) injector));
+
+	Py_hash_t hash;
+	if (!PyUnicode_CheckExact(id) || (hash = ((PyASCIIObject*) id)->hash) == -1) {
+        if ((hash = PyObject_Hash(id)) == -1) {
+            PyErr_Clear();
+            return NULL;
+        }
+    }
+
+	return Injector::Find(injector, id, hash);
+}
+
 
 PyObject* Injector::Provide(Injector* self, PyObject* id) {
 	return Injector::Provide(self, id, id, Module::State()->FACTORY, NULL);
