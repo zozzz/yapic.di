@@ -343,7 +343,6 @@ namespace _injectable {
 			assert(self->resolved != NULL);
 			assert(PyCallable_Check(self->resolved));
 			return PyObject_CallFunctionObjArgs(self->resolved, self, injector, NULL);
-			// return Value::Get(self, injector, owni, recursion);
 		};
 	};
 
@@ -368,22 +367,24 @@ namespace _injectable {
 	};
 
 
-	template<bool AllowKwOnly>
+	template<bool AllowKwOnly, bool HasKwOnly>
 	struct InvokeFn {
 		static FORCEINLINE PyObject* Invoke(Injectable* self, Injector* injector, Injector* owni, int recursion) {
-			PyObject* args = InvokeFn<AllowKwOnly>::GetCallArgs(self, injector, owni, recursion);
+			PyObject* args = InvokeFn<AllowKwOnly, HasKwOnly>::GetCallArgs(self, injector, owni, recursion);
 			PyObject* kwargs = NULL;
 			PyObject* res = NULL;
 			if (args == NULL) {
 				return NULL;
 			}
 
-			kwargs = InvokeFn<AllowKwOnly>::GetCallKwargs(self, injector, owni, recursion);
-			if (kwargs == NULL) {
-				Py_DECREF(args);
-				return NULL;
-			} else if (kwargs == Py_None) {
-				kwargs = NULL;
+			if (HasKwOnly) {
+				kwargs = InvokeFn<AllowKwOnly, HasKwOnly>::GetCallKwargs(self, injector, owni, recursion);
+				if (kwargs == NULL) {
+					Py_DECREF(args);
+					return NULL;
+				} else if (kwargs == Py_None) {
+					kwargs = NULL;
+				}
 			}
 
 			#ifdef Py_DEBUG
@@ -452,32 +453,29 @@ namespace _injectable {
 		}
 	};
 
-
-	template<bool AllowKwOnly>
+	template<bool AllowKwOnly, bool HasArgs, bool HasKwOnly>
 	struct InvokeClass {
 		static FORCEINLINE PyObject* Invoke(Injectable* self, Injector* injector, Injector* owni, int recursion) {
+			PyPtr<> args = HasArgs
+				? InvokeFn<AllowKwOnly, HasKwOnly>::GetCallArgs(self, injector, owni, recursion)
+				: PyTuple_New(0);
+			if (args.IsNull()) {
+				return NULL;
+			}
+
+			PyPtr<> kwargs = NULL;
+			if (HasKwOnly) {
+				kwargs = InvokeFn<AllowKwOnly, HasKwOnly>::GetCallKwargs(self, injector, owni, recursion);
+				if (kwargs.IsNull()) {
+					return NULL;
+				} else if (kwargs.As<PyObject>() == Py_None) {
+					kwargs = NULL;
+				}
+			}
+
 			PyTypeObject* type = (PyTypeObject*) self->value;
-			newfunc __new__ = type->tp_new;
-			if (__new__ == NULL) {
-				PyErr_Format(PyExc_TypeError, "cannot create '%.100s' instances", type->tp_name);
-				return NULL;
-			}
-
-			PyObject* args = InvokeFn<AllowKwOnly>::GetCallArgs(self, injector, owni, recursion);
-			PyObject* kwargs = NULL;
-			if (args == NULL) {
-				return NULL;
-			}
-
-			kwargs = InvokeFn<AllowKwOnly>::GetCallKwargs(self, injector, owni, recursion);
-			if (kwargs == NULL) {
-				Py_DECREF(args);
-				return NULL;
-			} else if (kwargs == Py_None) {
-				kwargs = NULL;
-			}
-
-			PyObject* obj = __new__(type, args, kwargs);
+			assert(type->tp_new != NULL);
+			PyObject* obj = type->tp_new(type, args, kwargs);
 			if (obj != NULL) {
 				PyTypeObject* objType = Py_TYPE(obj);
 
@@ -496,11 +494,9 @@ namespace _injectable {
 					goto error;
 				}
 
-				if (objType->tp_init != NULL) {
-					int res = objType->tp_init(obj, args, kwargs);
-					if (res < 0) {
-						goto error;
-					}
+				assert(objType->tp_init);
+				if (objType->tp_init(obj, args, kwargs) < 0) {
+					goto error;
 				}
 
 				return obj;
@@ -554,9 +550,11 @@ namespace _injectable {
 		return NULL;
 	};
 
-	using ClassValue = Value_Invoke<InvokeClass<true>>;
-	using FunctionValue = Value_Invoke<InvokeFn<true>>;
-	using KwOnlyGetter = Value_Invoke<InvokeFn<false>>;
+	template<bool HasArgs, bool HasKwOnly>
+	using ClassValue = Value_Invoke<InvokeClass<true, HasArgs, HasKwOnly>>;
+	template<bool HasKwOnly>
+	using FunctionValue = Value_Invoke<InvokeFn<true, HasKwOnly>>;
+	using KwOnlyGetter = Value_Invoke<InvokeFn<false, true>>;
 	using BasicValue = Value_Const;
 
 } // end namespace _injectable
@@ -575,14 +573,9 @@ Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyOb
 	self->kwargs = NULL;
 	self->attributes = NULL;
 	self->own_injector = NULL;
-	// self->custom_strategy = NULL;
-	// self->strategy = strategy;
 
 	if (strategy != Injectable::Strategy::VALUE) {
 		if (PyType_Check(value)) {
-			self->strategy = _injectable::GetStrategy<_injectable::ClassValue>(strategy);
-			self->get_value = &_injectable::ClassValue::Get;
-
 			PyPtr<> typeAliases = ResolveTypeVars(value);
 			if (typeAliases.IsNull() && PyErr_Occurred()) {
 				return NULL;
@@ -605,11 +598,35 @@ Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyOb
 					return NULL;
 				}
 			}
+
+			if (self->kwargs) {
+				if (self->args) {
+					self->strategy = _injectable::GetStrategy<_injectable::ClassValue<true, true>>(strategy);
+					self->get_value = &_injectable::ClassValue<true, true>::Get;
+				} else {
+					self->strategy = _injectable::GetStrategy<_injectable::ClassValue<false, true>>(strategy);
+					self->get_value = &_injectable::ClassValue<false, true>::Get;
+				}
+			} else {
+				if (self->args) {
+					self->strategy = _injectable::GetStrategy<_injectable::ClassValue<true, false>>(strategy);
+					self->get_value = &_injectable::ClassValue<true, false>::Get;
+				} else {
+					self->strategy = _injectable::GetStrategy<_injectable::ClassValue<false, false>>(strategy);
+					self->get_value = &_injectable::ClassValue<false, false>::Get;
+				}
+			}
 		} else {
-			self->strategy = _injectable::GetStrategy<_injectable::FunctionValue>(strategy);
-			self->get_value = &_injectable::FunctionValue::Get;
 			if (!_injectable::Collect::Callable::Arguments(self, value, NULL, 0)) {
 				return NULL;
+			}
+
+			if (self->kwargs) {
+				self->strategy = _injectable::GetStrategy<_injectable::FunctionValue<true>>(strategy);
+				self->get_value = &_injectable::FunctionValue<true>::Get;
+			} else {
+				self->strategy = _injectable::GetStrategy<_injectable::FunctionValue<false>>(strategy);
+				self->get_value = &_injectable::FunctionValue<false>::Get;
 			}
 		}
 
