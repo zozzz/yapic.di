@@ -164,6 +164,7 @@ def test_threadlocal(benchmark):
     def fn(factory):
         try:
             return tl.key
+            # return getattr(tl, "key")
         except AttributeError:
             value = factory()
             tl.key = value

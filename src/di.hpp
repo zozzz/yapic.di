@@ -68,10 +68,10 @@ public:
 
 	enum Strategy {
 		FACTORY = 1,
-		VALUE = 2,
-		SINGLETON = 3,
-		SCOPED = 4,
-		CUSTOM = 5,
+		SINGLETON = 2,
+		SCOPED = 3,
+		CUSTOM = 4,
+		VALUE = 5,
 		MAX = 5
 		// ALL = FACTORY | VALUE | SINGLETON | SCOPED | CUSTOM
 	};

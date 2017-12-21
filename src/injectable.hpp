@@ -399,7 +399,7 @@ namespace _injectable {
 		}
 	}
 
-	static PyObject* SingletonFactory(Injectable* self, Injector* injector, PyObject* singletons, int recursion) {
+	static inline PyObject* SingletonFactory(Injectable* self, Injector* injector, PyObject* singletons, int recursion) {
 		PyObject* inst = _PyDict_GetItem_KnownHash(singletons, (PyObject*) self, self->hash);
 		if (inst != NULL) {
 			Py_INCREF(inst);
@@ -415,37 +415,37 @@ namespace _injectable {
 	}
 
 
-	static PyObject* sfactory(Injectable* self, Injector* injector, int recursion) {
-		return _injectable::Factory<true>(self, injector, self->own_injector, recursion);
-	}
+	// static PyObject* sfactory(Injectable* self, Injector* injector, int recursion) {
+	// 	return _injectable::Factory<true>(self, injector, self->own_injector, recursion);
+	// }
 
-	static PyObject* ssingleton(Injectable* self, Injector* injector, int recursion) {
-		Yapic::RLock::Auto lock(Module::State()->rlock_singletons);
-		return _injectable::SingletonFactory(self, injector, Module::State()->singletons, recursion);
-	}
+	// static PyObject* ssingleton(Injectable* self, Injector* injector, int recursion) {
+	// 	Yapic::RLock::Auto lock(Module::State()->rlock_singletons);
+	// 	return _injectable::SingletonFactory(self, injector, Module::State()->singletons, recursion);
+	// }
 
-	static PyObject* sscoped(Injectable* self, Injector* injector, int recursion) {
-		return _injectable::SingletonFactory(self, injector, injector->singletons, recursion);
-	}
+	// static PyObject* sscoped(Injectable* self, Injector* injector, int recursion) {
+	// 	return _injectable::SingletonFactory(self, injector, injector->singletons, recursion);
+	// }
 
-	static PyObject* svalue(Injectable* self, Injector* injector, int recursion) {
-		Py_INCREF(self->value);
-		return self->value;
-	}
+	// static PyObject* svalue(Injectable* self, Injector* injector, int recursion) {
+	// 	Py_INCREF(self->value);
+	// 	return self->value;
+	// }
 
-	static PyObject* scustom(Injectable* self, Injector* injector, int recursion) {
-		assert(self->custom_strategy != NULL);
-		return PyObject_CallFunctionObjArgs(self->custom_strategy, self, injector, NULL);
-	}
+	// static PyObject* scustom(Injectable* self, Injector* injector, int recursion) {
+	// 	assert(self->custom_strategy != NULL);
+	// 	return PyObject_CallFunctionObjArgs(self->custom_strategy, self, injector, NULL);
+	// }
 
-	static const Injectable::StrategyCallback strategy_callbacks[] = {
-		NULL,
-		&sfactory,
-		&svalue,
-		&ssingleton,
-		&sscoped,
-		&scustom
-	};
+	// static const Injectable::StrategyCallback strategy_callbacks[] = {
+	// 	NULL,
+	// 	&sfactory,
+	// 	&svalue,
+	// 	&ssingleton,
+	// 	&sscoped,
+	// 	&scustom
+	// };
 
 } // end namespace _injectable
 
@@ -502,7 +502,7 @@ Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyOb
 	}
 
 	if (provide != NULL) {
-		if (self->value_type == Injectable::ValueType::OTHER || (self->strategy & Strategy::VALUE)) {
+		if (self->value_type == Injectable::ValueType::OTHER || strategy == Strategy::VALUE) {
 			PyErr_SetString(Module::State()->ExcProvideError, ZenoDI_Err_GotProvideForValue);
 			return NULL;
 		} else if (self->own_injector == NULL) {
@@ -536,7 +536,7 @@ Injectable* Injectable::New(PyObject* value, PyObject* strategy, PyObject* provi
 			}
 		} else {
 			strat = (Injectable::Strategy) PyLong_AS_LONG(strategy);
-			if (strat <= 0 || strat >= Injectable::Strategy::MAX) {
+			if (strat <= 0 || strat > Injectable::Strategy::MAX) {
 				PyErr_Format(Module::State()->ExcProvideError, ZenoDI_Err_GotInvalidStrategyInt, strategy);
 				return NULL;
 			}
@@ -548,34 +548,33 @@ Injectable* Injectable::New(PyObject* value, PyObject* strategy, PyObject* provi
 
 
 PyObject* Injectable::Resolve(Injectable* self, Injector* injector, int recursion) {
-	assert(self->strategy < Injectable::Strategy::MAX);
-	return _injectable::strategy_callbacks[self->strategy](self, injector, recursion);
+	// assert(self->strategy < Injectable::Strategy::MAX);
+	// return _injectable::strategy_callbacks[self->strategy](self, injector, recursion);
 
-	// switch (self->strategy) {
-	// 	case Injectable::Strategy::FACTORY:
-	// 		return _injectable::Factory<true>(self, injector, self->own_injector, recursion);
+	switch (self->strategy) {
+		case Injectable::Strategy::FACTORY:
+			return _injectable::Factory<true>(self, injector, self->own_injector, recursion);
 
-	// 	case Injectable::Strategy::VALUE:
-	// 		Py_INCREF(self->value);
-	// 		return self->value;
+		case Injectable::Strategy::SINGLETON: {
+			Yapic::RLock::Auto lock(Module::State()->rlock_singletons);
+			return _injectable::SingletonFactory(self, injector, Module::State()->singletons, recursion);
+		}
 
-	// 	case Injectable::Strategy::SINGLETON: {
-	// 		Yapic::RLock::Auto lock(Module::State()->rlock_singletons);
-	// 		return _injectable::SingletonFactory(self, injector, Module::State()->singletons, recursion);
-	// 	}
+		case Injectable::Strategy::SCOPED:
+			return _injectable::SingletonFactory(self, injector, injector->singletons, recursion);
 
-	// 	case Injectable::Strategy::SCOPED:
-	// 		Py_RETURN_NONE;
-	// 		// return _injectable::SingletonFactory(self, injector, injector->singletons, recursion);
+		case Injectable::Strategy::CUSTOM:
+			assert(self->custom_strategy != NULL);
+			return PyObject_CallFunctionObjArgs(self->custom_strategy, self, injector, NULL);
 
-	// 	case Injectable::Strategy::CUSTOM:
-	// 		assert(self->custom_strategy != NULL);
-	// 		return PyObject_CallFunctionObjArgs(self->custom_strategy, self, injector, NULL);
+		case Injectable::Strategy::VALUE:
+			Py_INCREF(self->value);
+			return self->value;
 
-	// 	default:
-	// 		assert(0);
-	// 		return NULL;
-	// }
+		default:
+			assert(0);
+			return NULL;
+	}
 
 
 	// auto strategy = self->strategy;
@@ -624,7 +623,7 @@ PyObject* Injectable::Resolve(Injectable* self, Injector* injector, int recursio
 
 
 PyObject* Injectable::__call__(Injectable* self, PyObject* args, PyObject** kwargs) {
-	if (self->strategy & Injectable::Strategy::FACTORY) {
+	if (self->strategy != Injectable::Strategy::VALUE) {
 		if (args != NULL && PyTuple_CheckExact(args) && PyTuple_GET_SIZE(args) == 1) {
 			Injector* injector = (Injector*) PyTuple_GET_ITEM(args, 0);
 			if (Injector::CheckExact(injector)) {
@@ -909,16 +908,9 @@ void InjectableFactory::__dealloc__(InjectableFactory* self) {
 }
 
 
-#define ZenoDI_HashMethods(__cls) \
-	Py_hash_t __cls::__hash__(__cls* self) { \
-		return self->hash; \
-	} \
-	PyObject* __cls::__cmp__(__cls* self, PyObject* other, int op) { \
-		Py_hash_t otherHash = PyObject_Hash(other); \
-		if (otherHash == -1) { \
-			return NULL; \
-		} \
-		PyObject* res; \
+/*
+
+PyObject* res; \
 		switch (op) { \
 			case Py_LT: res = (self->hash < otherHash ? Py_True : Py_False); break; \
 			case Py_LE: res = (self->hash <= otherHash ? Py_True : Py_False); break; \
@@ -929,6 +921,22 @@ void InjectableFactory::__dealloc__(InjectableFactory* self) {
 		} \
 		Py_INCREF(res); \
 		return res; \
+
+*/
+
+#define ZenoDI_HashMethods(__cls) \
+	Py_hash_t __cls::__hash__(__cls* self) { \
+		return self->hash; \
+	} \
+	PyObject* __cls::__cmp__(__cls* self, PyObject* other, int op) { \
+		if (op == Py_EQ && __cls::CheckExact(other)) { \
+			if (self->hash == ((__cls*) other)->hash) { \
+				Py_RETURN_TRUE; \
+			} else { \
+				Py_RETURN_FALSE; \
+			} \
+		} \
+		Py_RETURN_FALSE; \
 	}
 
 
