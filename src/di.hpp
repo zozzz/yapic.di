@@ -7,6 +7,14 @@
 
 #define ZenoDI_MAX_RECURSION 1000
 
+#ifdef _MSC_VER
+#	define FORCEINLINE __forceinline
+#elif defined(__GNUC__)
+#	define FORCEINLINE __attribute__((always_inline)) inline
+#else
+#	define FORCEINLINE inline
+#endif
+
 #include <stdbool.h>
 #include <Python.h>
 #include <yapic/module.hpp>
