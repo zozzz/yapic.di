@@ -58,7 +58,7 @@ public:
 
 class Injectable: public Yapic::Type<Injectable, Yapic::Object> {
 public:
-	typedef PyObject* (*StrategyCallback)(Injectable* self, Injector* injector, int recursion);
+	typedef PyObject* (*StrategyCallback)(Injectable* self, Injector* injector, Injector* owni, int recursion);
 	using UnicodeBuilder = Yapic::UnicodeBuilder<1024>;
 
 	enum ValueType {
@@ -82,12 +82,13 @@ public:
 	PyObject* kwargs;		// dict[str, ValueResolver]
 	PyObject* attributes;	// dict[str, ValueResolver]
 	Injector* own_injector;
-	PyObject* custom_strategy;
+	// PyObject* custom_strategy;
+	PyObject* resolved;		// in singleton strategy this is the resolved value, if CUSTOM, this is a callable
 
 	Py_hash_t hash;
-	ValueType value_type;
-	Strategy strategy;
-	// StrategyCallback strategy;
+	// ValueType value_type;
+	// Strategy strategy;
+	StrategyCallback strategy;
 
 	Yapic_PrivateNew;
 
@@ -130,20 +131,20 @@ public:
 };
 
 
-class InjectableFactory: public Yapic::Type<InjectableFactory, Yapic::Object, Yapic::FreeList<InjectableFactory, 256>> {
-public:
-	Injectable* injectable;
-	Injector* injector;
-	Py_hash_t hash;
+// class InjectableFactory: public Yapic::Type<InjectableFactory, Yapic::Object, Yapic::FreeList<InjectableFactory, 256>> {
+// public:
+// 	Injectable* injectable;
+// 	Injector* injector;
+// 	Py_hash_t hash;
 
-	Yapic_PrivateNew;
+// 	Yapic_PrivateNew;
 
-	static InjectableFactory* New(Injectable* injectable, Injector* injector, Py_hash_t hash);
-	static PyObject* __call__(InjectableFactory* self, PyObject* args, PyObject** kwargs);
-	static Py_hash_t __hash__(InjectableFactory* self);
-	static PyObject* __cmp__(InjectableFactory* self, PyObject* other, int op);
-	static void __dealloc__(InjectableFactory* self);
-};
+// 	static InjectableFactory* New(Injectable* injectable, Injector* injector, Py_hash_t hash);
+// 	static PyObject* __call__(InjectableFactory* self, PyObject* args, PyObject** kwargs);
+// 	static Py_hash_t __hash__(InjectableFactory* self);
+// 	static PyObject* __cmp__(InjectableFactory* self, PyObject* other, int op);
+// 	static void __dealloc__(InjectableFactory* self);
+// };
 
 
 class ValueResolver: public Yapic::Type<ValueResolver, Yapic::Object> {
@@ -247,7 +248,7 @@ public:
 		if (!Injector::Register(module) ||
 			!Injectable::Register(module) ||
 			!BoundInjectable::Register(module) ||
-			!InjectableFactory::Register(module) ||
+			// !InjectableFactory::Register(module) ||
 			!ValueResolver::Register(module) ||
 			!KwOnly::Register(module)) {
 			return -1;
