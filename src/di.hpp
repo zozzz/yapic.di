@@ -81,7 +81,7 @@ public:
 		SCOPED = 3,
 		CUSTOM = 4,
 		VALUE = 5,
-		MAX = 5
+		MAX = 6
 		// ALL = FACTORY | VALUE | SINGLETON | SCOPED | CUSTOM
 	};
 
@@ -102,6 +102,7 @@ public:
 	Yapic_PrivateNew;
 
 	static Injectable* New(PyObject* value, Strategy strategy, PyObject* provide);
+	static Injectable* New(PyObject* value, Strategy strategy, PyObject* provide, PyObject* typeVars);
 	static Injectable* New(PyObject* value, PyObject* strategy, PyObject* provide);
 	static inline PyObject* Resolve(Injectable* self, Injector* injector, int recursion);
 	static bool ToString(Injectable* self, UnicodeBuilder* builder, int level);
@@ -162,11 +163,12 @@ public:
 	PyObject* name;
 	PyObject* default_value;
 	PyObject* globals;
+	PyObject* injectable;
 	Py_hash_t id_hash;
 
 	Yapic_PrivateNew;
 
-	static ValueResolver* New(PyObject* name, PyObject* id, PyObject* default_value, PyObject* globals);
+	static ValueResolver* New(PyObject* name, PyObject* id, PyObject* default_value, PyObject* globals, PyObject* injectable);
 	template<bool UseKwOnly>
 	static PyObject* Resolve(ValueResolver* self, Injector* injector, Injector* own_injector, int recursion);
 	static void SetId(ValueResolver* self, PyObject* id);
@@ -208,6 +210,10 @@ public:
 	ModuleVar STR_ARGS;
 	ModuleVar STR_PARAMETERS;
 	ModuleVar STR_MODULE;
+	ModuleVar STR_MRO_ENTRIES;
+	ModuleVar STR_ORIGIN;
+	ModuleVar STR_ORIG_BASES;
+	ModuleVar STR_DICT;
 	ModuleVar singletons;
 
 	ModuleVar FACTORY;
@@ -219,6 +225,10 @@ public:
 	ModuleExc ExcProvideError;
 	ModuleExc ExcInjectError;
 	ModuleExc ExcNoKwOnly;
+
+	ModuleRef Inject;
+	ModuleRef Generic;
+	ModuleRef GenericAlias;
 
 	Yapic::RLock* rlock_singletons;
 
@@ -234,6 +244,10 @@ public:
 		state->STR_ARGS = "__args__";
 		state->STR_PARAMETERS = "__parameters__";
 		state->STR_MODULE = "__module__";
+		state->STR_MRO_ENTRIES = "__mro_entries__";
+		state->STR_ORIGIN = "__origin__";
+		state->STR_ORIG_BASES = "__orig_bases__";
+		state->STR_DICT = "__dict__";
 		state->singletons = PyDict_New();
 
 		state->VALUE.Value(Injectable::Strategy::VALUE).Export("VALUE");
@@ -246,6 +260,10 @@ public:
 		state->ExcInjectError.Define("InjectError", state->ExcBase);
 		state->ExcNoKwOnly.Define("NoKwOnly", state->ExcProvideError);
 
+		state->Generic.Import("typing", "Generic");
+		state->GenericAlias.Import("typing", "_GenericAlias");
+		state->Inject.Import("zeno.di.inject", "Inject");
+
 		// init MethodWrapperType
 		PyObject* method = PyObject_GetAttrString(state->ExcBase, "__call__");
 		if (method == NULL) {
@@ -254,12 +272,12 @@ public:
 		state->MethodWrapperType = (PyObject*) Py_TYPE(method);
 		Py_DECREF(method);
 
-		if (!Injector::Register(module) ||
-			!Injectable::Register(module) ||
-			!BoundInjectable::Register(module) ||
+		if (!Injector::Register(module, __name__) ||
+			!Injectable::Register(module, __name__) ||
+			!BoundInjectable::Register(module, __name__) ||
 			// !InjectableFactory::Register(module) ||
-			!ValueResolver::Register(module) ||
-			!KwOnly::Register(module)) {
+			!ValueResolver::Register(module, __name__) ||
+			!KwOnly::Register(module, __name__)) {
 			return -1;
 		}
 

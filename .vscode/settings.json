@@ -1,3 +1,22 @@
 {
-	"python.pythonPath": "C:/dev/python3/python.exe"
+	"python.pythonPath": "C:/dev/python3/python.exe",
+	"files.associations": {
+		"*.inc": "php",
+		"*.ap": "php",
+		"*.wsgi": "python",
+		".clang-format": "yaml",
+		"Dockerfile.*": "dockerfile",
+		"Pipfile": "ini",
+		"istream": "cpp",
+		"cstddef": "cpp",
+		"xlocale": "cpp"
+	},
+	"python.unitTest.pyTestArgs": [
+		"-x",
+		"-s",
+		"tests"
+	],
+	"python.unitTest.unittestEnabled": false,
+	"python.unitTest.nosetestsEnabled": false,
+	"python.unitTest.pyTestEnabled": true
 }

@@ -11,6 +11,6 @@ namespace ZenoDI {
 } // end namespace ZenoDI
 
 
-PyMODINIT_FUNC PyInit_di(void) {
+PyMODINIT_FUNC PyInit__di(void) {
     return ZenoDI::Module::Create();
 }

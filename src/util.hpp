@@ -5,6 +5,47 @@
 
 namespace ZenoDI {
 
+static inline void printr(const char* name, const PyObject* obj) {
+	PyObject* repr = PyObject_Repr(const_cast<PyObject*>(obj));
+    PyObject* str = PyUnicode_AsEncodedString(repr, "utf-8", "~E~");
+    const char *bytes = PyBytes_AS_STRING(str);
+	printf("%s: %s\n", name, bytes);
+	Py_XDECREF(repr);
+    Py_XDECREF(str);
+}
+
+
+static inline PyTupleObject* GetGenericMro(PyObject* type) {
+	PyObject* fn = PyObject_GetAttr(type, Module::State()->STR_PARAMETERS);
+	if (fn == NULL) {
+		return NULL;
+	}
+
+	PyObject* args = PyTuple_New(1);
+	if (args == NULL) {
+		Py_DECREF(fn);
+		return NULL;
+	}
+
+	PyObject* p1 = PyTuple_New(0);
+	if (p1 == NULL) {
+		Py_DECREF(fn);
+		Py_DECREF(args);
+	}
+	PyTuple_SET_ITEM(args, 0, p1);
+
+	PyObject* mroEntries = PyObject_Call(fn, args, NULL);
+	Py_DECREF(args);
+	Py_DECREF(fn);
+	if (mroEntries == NULL) {
+		return NULL;
+	}
+
+	assert(PyTuple_CheckExact(mroEntries));
+	return (PyTupleObject*)mroEntries;
+}
+
+
 /**
  * example:
  * 	class A(Generic[T]):
@@ -16,6 +57,10 @@ namespace ZenoDI {
  * returns NULL if given type is not Generic (not raise error) or error raised
  */
 static inline PyObject* ResolveTypeVars(PyObject* type) {
+	return NULL;
+	//PyPtr<> mro = GetGenericMro(type);
+
+	/*
 	PyObject* mro = ((PyTypeObject*) type)->tp_mro;
 	assert(mro != NULL);
 	assert(PyTuple_CheckExact(mro));
@@ -25,12 +70,16 @@ static inline PyObject* ResolveTypeVars(PyObject* type) {
 		return NULL;
 	}
 
+	printr("mro", mro);
+
 	PyObject* __params = Module::State()->STR_PARAMETERS;
 	PyPtr<> params = PyObject_GetAttr(PyTuple_GET_ITEM(mro, 1), __params);
 	if (params.IsNull()) {
 		PyErr_Clear();
 		return NULL;
 	}
+
+
 
 	Py_ssize_t pSize = PyTuple_GET_SIZE(params.As<PyTupleObject>());
 	if (pSize == 0) {
@@ -79,6 +128,7 @@ static inline PyObject* ResolveTypeVars(PyObject* type) {
 	}
 
 	return vars.Steal();
+	*/
 }
 
 

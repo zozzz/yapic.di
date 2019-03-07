@@ -91,7 +91,7 @@ namespace ZenoDI {
 	} /* end namespace _resolver */
 
 
-ValueResolver* ValueResolver::New(PyObject* name, PyObject* id, PyObject* default_value, PyObject* globals) {
+ValueResolver* ValueResolver::New(PyObject* name, PyObject* id, PyObject* default_value, PyObject* globals, PyObject* injectable) {
 	ValueResolver* self = ValueResolver::Alloc();
 	if (self == NULL) {
 		return NULL;
@@ -100,10 +100,12 @@ ValueResolver* ValueResolver::New(PyObject* name, PyObject* id, PyObject* defaul
 	Py_XINCREF(name);
 	Py_XINCREF(default_value);
 	Py_XINCREF(globals);
+	Py_XINCREF(injectable);
 
 	self->name = name;
 	self->default_value = default_value;
 	self->globals = globals;
+	self->injectable = injectable;
 
 	if (id != NULL) {
 		Py_INCREF(id);
@@ -141,6 +143,15 @@ PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector, Inject
 
 	if (type) {
 		result = _resolver::GetByType<true>(self, injector, own_injector, type, self->id_hash, recursion);
+		ValueResulver_ReturnIfOk(result);
+	}
+
+	if (self->injectable) {
+		if (own_injector != NULL) {
+			result = Injectable::Resolve(reinterpret_cast<Injectable*>(self->injectable), own_injector, recursion);
+			ValueResulver_ReturnIfOk(result);
+		}
+		result = Injectable::Resolve(reinterpret_cast<Injectable*>(self->injectable), injector, recursion);
 		ValueResulver_ReturnIfOk(result);
 	}
 

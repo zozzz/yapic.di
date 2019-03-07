@@ -14,17 +14,22 @@ VERSION = "1.0.0"
 define_macros = {
     "ZENO_DI_VERSION_MAJOR": VERSION.split(".")[0],
     "ZENO_DI_VERSION_MINOR": VERSION.split(".")[1],
-    "ZENO_DI_VERSION_PATCH": VERSION.split(".")[2],
+    "ZENO_DI_VERSION_PATCH": VERSION.split(".")[2]
 }
 undef_macros = []
 extra_compile_args = []  # -flto
 
+subcommand_args = []
+if "--" in sys.argv:
+    subcommand_args = sys.argv[sys.argv.index("--") + 1:]
+    del sys.argv[sys.argv.index("--"):]
+
 if sys.platform == "win32":
-    define_macros["UNICODE"] = 1
+    define_macros["UNICODE"] = "1"
 
     DEVELOP = sys.executable.endswith("python_d.exe")
     if DEVELOP:
-        define_macros["_DEBUG"] = 1
+        define_macros["_DEBUG"] = "1"
         undef_macros.append("NDEBUG")
         extra_compile_args.append("/MTd")
         extra_compile_args.append("/Zi")
@@ -35,6 +40,7 @@ if sys.platform == "win32":
     extra_compile_args.append("/FAs")
 else:
     extra_compile_args.append("-std=c++11")
+    extra_compile_args.append("-Wunknown-pragmas")
 
     DEVELOP = False
     if not DEVELOP:
@@ -46,28 +52,28 @@ def root(*p):
 
 
 cpp_ext = Extension(
-    name="zeno.di",
+    name="zeno.di._di",
     sources=["src/di.cpp"],
-    include_dirs=[
-        "./libs/yapic.core/src/yapic/core/include"
-    ],
+    include_dirs=["./libs/yapic.core/src/yapic/core/include"],
     depends=glob("src/*.hpp") + glob("./libs/yapic.core/src/yapic/core/include/**/*.hpp"),
     extra_compile_args=extra_compile_args,
     define_macros=list(define_macros.items()),
     undef_macros=undef_macros,
-    language="c++"
-)
+    language="c++")
 
 
 def cmd_prerun(cmd, requirements):
     for r in requirements(cmd.distribution):
-        installed = cmd.distribution.fetch_build_eggs(r if r else [])
+        if r:
+            installed = cmd.distribution.fetch_build_eggs(r)
 
-        for dp in map(lambda x: x.location, installed):
-            if dp not in sys.path:
-                sys.path.insert(0, dp)
+            if installed:
+                for dp in map(lambda x: x.location, installed):
+                    if dp not in sys.path:
+                        sys.path.insert(0, dp)
 
-    cmd.run_command('build_ext')
+    cmd.distribution.get_command_obj("build").force = True
+    cmd.run_command("build")
 
     ext = cmd.get_finalized_command("build_ext")
     ep = str(Path(ext.build_lib).absolute())
@@ -82,19 +88,15 @@ def cmd_prerun(cmd, requirements):
 
 class PyTest(TestCommand):
     user_options = [
-        ("pytest-args=", "a", "Arguments to pass to pytest"),
         ("file=", "f", "File to run"),
     ]
 
     def initialize_options(self):
         super().initialize_options()
-        self.pytest_args = "-x -s"
         self.file = "./tests/"
 
     def finalize_options(self):
         super().finalize_options()
-        if self.file:
-            self.pytest_args += " " + self.file.replace("\\", "/")
 
     def run(self):
         def requirements(dist):
@@ -105,9 +107,8 @@ class PyTest(TestCommand):
         self.run_tests()
 
     def run_tests(self):
-        import shlex
         import pytest
-        errno = pytest.main(shlex.split(self.pytest_args))
+        errno = pytest.main(subcommand_args)
         sys.exit(errno)
 
 
@@ -135,23 +136,17 @@ class Benchmark(Command):
         sys.exit(errno)
 
 
-
 # typing: https://github.com/python/typing/issues/84
 setup(
     name="zeno.di",
-    packages=["zeno"],
-    package_dir={"zeno": "src"},
+    packages=["zeno.di"],
+    package_dir={"zeno.di": "src"},
+    package_data={"zeno.di": ["_di.pyi"]},
     ext_modules=[cpp_ext],
     tests_require=["pytest"],
-    python_requires=">=3.5",
-    extras_require={
-        "benchmark": [
-            "pytest",
-            "pytest-benchmark"
-        ]
-    },
+    python_requires=">=3.7",
+    extras_require={"benchmark": ["pytest", "pytest-benchmark"]},
     cmdclass={
         "test": PyTest,
         "bench": Benchmark
-    }
-)
+    })

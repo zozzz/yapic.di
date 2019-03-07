@@ -3,27 +3,37 @@
 
 #include "./di.hpp"
 #include "./util.hpp"
+#include "./typing.hpp"
 
 
 namespace ZenoDI {
 
 namespace _injectable {
-	static inline PyObject* NewVRFromID(PyObject* name, PyObject* id, PyObject* def, PyObject* aliases, PyObject* g) {
-		if (aliases != NULL) {
-			PyObject* alias = PyDict_GetItem(aliases, id); // borrowed, no exception
+	static inline PyObject* NewVRFromID(PyObject* name, PyObject* id, PyObject* def, PyObject* typeVars, PyObject* g) {
+		if (typeVars != NULL) {
+			PyObject* alias = PyDict_GetItem(typeVars, id); // borrowed, no exception
 			if (alias != NULL) {
 				id = alias;
 			}
 		}
-		return (PyObject*) ValueResolver::New(name, id, def, g);
+
+		PyPtr<> injectable(NULL);
+		if (Typing::IsGenericType(id)) {
+			injectable = (PyObject*)Injectable::New(id, Injectable::Strategy::FACTORY, (PyObject*)NULL, typeVars);
+			if (injectable.IsNull()) {
+				return NULL;
+			}
+		}
+
+		return (PyObject*) ValueResolver::New(name, id, def, g, injectable);
 	}
 
-	static inline PyObject* NewVR(PyObject* name, PyObject* annots, PyObject* def, PyObject* aliases, PyObject* g) {
+	static inline PyObject* NewVR(PyObject* name, PyObject* annots, PyObject* def, PyObject* typeVars, PyObject* g) {
 		assert(name != NULL && PyUnicode_Check(name));
 		assert(annots == NULL || PyDict_Check(annots));
 
 		PyObject* id = annots == NULL ? NULL : PyDict_GetItem(annots, name); // borrowed ref, no exception
-		return NewVRFromID(name, id, def, aliases, g);
+		return NewVRFromID(name, id, def, typeVars, g);
 	}
 
 	namespace Collect {
@@ -68,7 +78,7 @@ namespace _injectable {
 				return NULL;
 			}
 
-			static inline bool Arguments(Injectable* injectable, PyObject* obj, PyObject* aliases, int offset) {
+			static inline bool Arguments(Injectable* injectable, PyObject* obj, PyObject* typeVars, int offset) {
 				PyFunctionObject* func;
 				PyObject* self;
 				if (!GetFunction(obj, func, self)) {
@@ -112,7 +122,7 @@ namespace _injectable {
 						for (int i=offset ; i<code->co_argcount ; ++i) {
 							// TODO: ha nincs típusa, akkor hibát kell adni, mivel nem is tudunk mit injectálni oda
 							PyObject* resolver = NewVR(
-								PyTuple_GET_ITEM(code->co_varnames, i), annots, NULL, aliases, globals);
+								PyTuple_GET_ITEM(code->co_varnames, i), annots, NULL, typeVars, globals);
 							if (resolver == NULL) {
 								return false;
 							}
@@ -128,7 +138,7 @@ namespace _injectable {
 								? PyTuple_GET_ITEM(defaults, defcounter++)
 								: NULL);
 							PyObject* resolver = NewVR(
-								PyTuple_GET_ITEM(code->co_varnames, i), annots, def, aliases, globals);
+								PyTuple_GET_ITEM(code->co_varnames, i), annots, def, typeVars, globals);
 							if (resolver == NULL) {
 								return false;
 							}
@@ -150,7 +160,7 @@ namespace _injectable {
 					if (defaults == NULL) {
 						for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
 							PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i); // borrowed
-							PyPtr<> resolver = NewVR(name, annots, NULL, aliases, globals);
+							PyPtr<> resolver = NewVR(name, annots, NULL, typeVars, globals);
 							if (resolver.IsNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
 								return false;
 							}
@@ -161,7 +171,7 @@ namespace _injectable {
 						for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
 							PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i); // borrowed
 							PyObject* def = PyDict_GetItem(defaults, name); // borrowed
-							PyPtr<> resolver = NewVR(name, annots, def, aliases, globals);
+							PyPtr<> resolver = NewVR(name, annots, def, typeVars, globals);
 							if (resolver.IsNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
 								return false;
 							}
@@ -176,56 +186,102 @@ namespace _injectable {
 		} /* end namespace Callable */
 
 		namespace Type {
-			static inline bool Attributes(Injectable* injectable, PyTypeObject* type, PyObject* typeAliases) {
+			static inline bool Attributes(PyObject* attributes, PyObject* type, PyObject* typeVars) {
+				PyPtr<> annots = PyObject_GetAttr(type, Module::State()->STR_ANNOTATIONS);
+				if (annots.IsNull()) {
+					PyErr_Clear();
+					return true;
+				}
+				assert(PyDict_CheckExact(annots));
+
+				if (PyDict_Size(annots) == 0) {
+					return true;
+				}
+
+				PyPtr<> module = PyObject_GetAttr(type, Module::State()->STR_MODULE);
+				if (module.IsValid()) {
+					module = ImportModule(module);
+					if (module.IsNull()) {
+						return false;
+					}
+				} else {
+					return false;
+				}
+
+				PyObject* key;
+				PyObject* value;
+				Py_ssize_t pos = 0;
+				PyPtr<> resolver(NULL);
+
+				while (PyDict_Next(annots, &pos, &key, &value)) {
+					switch (PyDict_Contains(attributes, key)) {
+						case 0:
+							if (Typing::IsInjectableAttr(value)) {
+								PyObject* injectType = Typing::UnpackInjectType(value, typeVars);
+								if (injectType == NULL) {
+									return false;
+								}
+
+								resolver = (PyObject*) NewVRFromID(key, injectType, NULL, typeVars, module);
+								if (resolver.IsNull()) {
+									return false;
+								}
+
+								if (PyDict_SetItem(attributes, key, resolver) == -1) {
+									return false;
+								}
+							}
+							break;
+
+						case 1:
+							continue;
+
+						case -1:
+							return false;
+					}
+				}
+				return true;
+			}
+
+
+			static inline bool Full(Injectable* injectable, PyObject* type, PyObject* typeVars) {
 				PyPtr<> attributes = PyDict_New();
 				if (attributes.IsNull()) {
 					return false;
 				}
 
-				PyObject* mro = type->tp_mro;
-				assert(mro != NULL);
-				assert(PyTuple_CheckExact(mro));
+				Typing::MroResolver resolver(type, typeVars);
 
-				PyObject* str_annots = Module::State()->STR_ANNOTATIONS;
-				PyObject* str_module = Module::State()->STR_MODULE;
-				for (Py_ssize_t i=PyTuple_GET_SIZE(mro) - 1; i>=0; i--) {
-					PyObject* base = PyTuple_GET_ITEM(mro, i);
-					assert(base != NULL);
+				const PyObject* mro = resolver.Resolve();
+				if (mro == NULL) {
+					return false;
+				}
 
-					PyPtr<> annots = PyObject_GetAttr(base, str_annots);
-					if (annots.IsNull()) {
-						PyErr_Clear();
-						continue;
-					}
-					assert(PyDict_CheckExact(annots));
+				PyPtr<> clsDict(NULL);
+				bool hasInit = false;
+				Py_ssize_t l = PyTuple_GET_SIZE(mro);
+				for (Py_ssize_t i = 0; i < l; ++i) {
+					PyObject* entry = PyTuple_GET_ITEM(mro, i);
+					PyObject* type = PyTuple_GET_ITEM(entry, 0);
+					PyObject* vars = PyTuple_GET_ITEM(entry, 1);
 
-					if (PyDict_Size(annots) == 0) {
-						continue;
-					}
-
-					// TODO: found better ide to get class definier injectables
-					PyPtr<> module = PyObject_GetAttr(base, str_module);
-					if (module.IsNull()) {
-						return false;
-					}
-					module = ImportModule(module);
-					if (module.IsNull()) {
+					if (!Attributes(attributes, type, vars)) {
 						return false;
 					}
 
-					PyObject* key;
-					PyObject* value;
-					Py_ssize_t pos = 0;
-
-					while (PyDict_Next(annots, &pos, &key, &value)) {
-						// TODO: skip ClassVar[...]
-						// TODO: maybe default value???
-						PyPtr<> resolver = (PyObject*) NewVRFromID(key, value, NULL, typeAliases, module);
-						if (resolver.IsNull()) {
-							return false;
-						}
-						if (PyDict_SetItem(attributes, key, resolver) == -1) {
-							return false;
+					if (!hasInit) {
+						clsDict = PyObject_GetAttr(type, Module::State()->STR_DICT);
+						if (clsDict.IsNull()) {
+							PyErr_Clear();
+						} else {
+							PyObject* init = PyObject_GetItem(clsDict, Module::State()->STR_INIT);
+							if (init != NULL) {
+								hasInit = _injectable::Collect::Callable::Arguments(injectable, init, vars, 1);
+								Py_DECREF(init);
+								if (!hasInit) {
+									PyErr_Clear();
+								}
+							}
 						}
 					}
 				}
@@ -559,8 +615,12 @@ namespace _injectable {
 
 } // end namespace _injectable
 
-
 Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyObject* provide) {
+	return Injectable::New(value, strategy, provide, (PyObject*)NULL);
+}
+
+
+Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyObject* provide, PyObject* typeVars) {
 	PyPtr<Injectable> self = Injectable::Alloc();
 	if (self.IsNull()) {
 		return NULL;
@@ -575,28 +635,18 @@ Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyOb
 	self->own_injector = NULL;
 
 	if (strategy != Injectable::Strategy::VALUE) {
-		if (PyType_Check(value)) {
-			PyPtr<> typeAliases = ResolveTypeVars(value);
-			if (typeAliases.IsNull() && PyErr_Occurred()) {
+		if (PyType_Check(value) || Typing::IsGenericType(value)) {
+			if (!_injectable::Collect::Type::Full(self, value, typeVars)) {
 				return NULL;
 			}
 
-			if (!_injectable::Collect::Type::Attributes(self, (PyTypeObject*) value, typeAliases)) {
-				return NULL;
-			}
-
-			PyPtr<> init = PyObject_GetAttr(value, Module::State()->STR_INIT);
-			if (init.IsNull()) {
-				return NULL;
-			}
-
-			// __init__ is optional
-			if (!_injectable::Collect::Callable::Arguments(self, init, typeAliases, 1)) {
-				if (PyErr_ExceptionMatches(Module::State()->ExcProvideError)) {
-					PyErr_Clear();
-				} else {
+			if (Typing::IsGenericType(value)) {
+				PyObject* origin = PyObject_GetAttr(value, Module::State()->STR_ORIGIN);
+				if (origin == NULL) {
 					return NULL;
 				}
+				Py_DECREF(self->value);
+				self->value = origin;
 			}
 
 			if (self->kwargs) {
@@ -683,6 +733,8 @@ Injectable* Injectable::New(PyObject* value, PyObject* strategy, PyObject* provi
 
 
 PyObject* Injectable::Resolve(Injectable* self, Injector* injector, int recursion) {
+	assert(self != NULL && Injectable::CheckExact(self));
+	assert(injector != NULL);
 	return self->strategy(self, injector, self->own_injector, recursion);
 }
 

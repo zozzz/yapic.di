@@ -1,13 +1,25 @@
 # flake8: noqa
+# type: ignore
 import pytest
 from zeno.di import Injector
 
 injector = Injector()
 
-class A: pass
-class B: pass
-class C: pass
-class D: pass
+
+class A:
+    pass
+
+
+class B:
+    pass
+
+
+class C:
+    pass
+
+
+class D:
+    pass
 
 
 injector.provide(A)
@@ -149,34 +161,12 @@ def fn_mixed5(a1: A, a2: "X" = 2, *, kw1: B, kw2: C, kw3: "Y" = 3):
     assert a2 == 2
     assert kw3 == 3
 
-FNS = (
-    fn_arg1,
-    fn_arg2,
-    fn_arg3,
-    fn_arg4,
-    fn_def_arg1,
-    fn_def_arg2,
-    fn_def_arg3,
-    fn_def_arg4,
-    fn_def_arg5,
-    fn_kwonly1,
-    fn_kwonly2,
-    fn_kwonly3,
-    fn_kwonly4,
-    fn_def_kwonly1,
-    fn_def_kwonly2,
-    fn_def_kwonly3,
-    fn_def_kwonly4,
-    fn_def_kwonly5,
-    fn_mixed1,
-    fn_mixed2,
-    fn_mixed3,
-    fn_mixed4,
-    fn_mixed5
-)
+
+FNS = (fn_arg1, fn_arg2, fn_arg3, fn_arg4, fn_def_arg1, fn_def_arg2, fn_def_arg3, fn_def_arg4, fn_def_arg5, fn_kwonly1,
+       fn_kwonly2, fn_kwonly3, fn_kwonly4, fn_def_kwonly1, fn_def_kwonly2, fn_def_kwonly3, fn_def_kwonly4,
+       fn_def_kwonly5, fn_mixed1, fn_mixed2, fn_mixed3, fn_mixed4, fn_mixed5)
+
 
 @pytest.mark.parametrize("fn", FNS)
 def test_signatures(fn):
     injector.exec(fn)
-
-
