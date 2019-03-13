@@ -3,14 +3,13 @@
 
 #include <yapic/string-builder.hpp>
 #include "./di.hpp"
-#include "./util.hpp"
 
 #define ValueResulver_ReturnIfOk(v) \
 	if (v != NULL) { \
 		return v; \
 	} else if (PyErr_Occurred()) { \
-		return NULL;\
-	} \
+		return NULL; \
+	}
 
 namespace ZenoDI {
 	namespace _resolver {
@@ -56,25 +55,6 @@ namespace ZenoDI {
 				return Injectable::Resolve((Injectable*) result, injector, recursion);
 			}
 			assert(PyErr_Occurred() == NULL);
-
-			// maybe forwardref...
-			// if (AllowForwardRef) {
-			// 	PyObject* globals = self->globals;
-			// 	if (PyUnicode_CheckExact(type) && globals != NULL) {
-			// 		PyObject* fwType = ResolveNameFromGlobals(globals, type);
-			// 		if (fwType != NULL) {
-			// 			Py_hash_t fwHash = PyObject_Hash(fwType);
-			// 			if (fwHash == -1) {
-			// 				PyErr_Clear();
-			// 			}
-			// 			result = GetByType<false>(self, injector, own_injector, fwType, fwHash, recursion);
-			// 			Py_DECREF(fwType);
-			// 			ValueResulver_ReturnIfOk(result)
-			// 		} else if (PyErr_Occurred()) {
-			// 			PyErr_Clear();
-			// 		}
-			// 	}
-			// }
 
 			// get Injector
 			if ((PyTypeObject*) type == const_cast<PyTypeObject*>(Injector::PyType())) {
@@ -212,7 +192,6 @@ void ValueResolver::__dealloc__(ValueResolver* self) {
 	Py_CLEAR(self->name);
 	Py_CLEAR(self->id);
 	Py_CLEAR(self->default_value);
-	// Py_CLEAR(self->globals);
 	Super::__dealloc__(self);
 }
 

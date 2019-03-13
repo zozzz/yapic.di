@@ -33,14 +33,12 @@ KwOnly* KwOnly::New(PyObject* getter) {
 	} else {
 		assert(ValueResolver::CheckExact(self->name_resolver));
 		Py_INCREF(self->name_resolver);
-		// ValueResolver::SetName(self->name_resolver, NULL);
 	}
 
 	self->type_resolver = Injectable::GetKwArg(self->getter, Module::State()->STR_KWA_TYPE);
 	if (self->type_resolver != NULL) {
 		assert(ValueResolver::CheckExact(self->type_resolver));
 		Py_INCREF(self->type_resolver);
-		// ValueResolver::SetName(self->type_resolver, NULL);
 	}
 
 	return self.Steal();

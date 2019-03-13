@@ -90,7 +90,7 @@ public:
 
 	PyObject* value;
 	PyObject* args; 		// tuple[ValueResolver]
-	PyObject* kwargs;		// dict[str, ValueResolver]
+	PyObject* kwargs;		// tuple[ValueResolver]
 	PyObject* attributes;	// dict[str, ValueResolver]
 	Injector* own_injector;
 	// PyObject* custom_strategy;
@@ -145,22 +145,6 @@ public:
 };
 
 
-// class InjectableFactory: public Yapic::Type<InjectableFactory, Yapic::Object, Yapic::FreeList<InjectableFactory, 256>> {
-// public:
-// 	Injectable* injectable;
-// 	Injector* injector;
-// 	Py_hash_t hash;
-
-// 	Yapic_PrivateNew;
-
-// 	static InjectableFactory* New(Injectable* injectable, Injector* injector, Py_hash_t hash);
-// 	static PyObject* __call__(InjectableFactory* self, PyObject* args, PyObject** kwargs);
-// 	static Py_hash_t __hash__(InjectableFactory* self);
-// 	static PyObject* __cmp__(InjectableFactory* self, PyObject* other, int op);
-// 	static void __dealloc__(InjectableFactory* self);
-// };
-
-
 class ValueResolver: public Yapic::Type<ValueResolver, Yapic::Object> {
 public:
 	PyObject* id;
@@ -204,19 +188,10 @@ public:
 
 	static constexpr const char* __name__ = "zeno.di";
 
-	ModuleVar STR_ANNOTATIONS;
-	ModuleVar STR_QUALNAME;
-	ModuleVar STR_CALL;
-	ModuleVar STR_INIT;
 	ModuleVar STR_KWA_NAME;
 	ModuleVar STR_KWA_TYPE;
 	ModuleVar STR_ARGS;
-	ModuleVar STR_PARAMETERS;
-	ModuleVar STR_MODULE;
-	ModuleVar STR_MRO_ENTRIES;
 	ModuleVar STR_ORIGIN;
-	ModuleVar STR_ORIG_BASES;
-	ModuleVar STR_DICT;
 	ModuleVar singletons;
 
 	ModuleVar FACTORY;
@@ -236,22 +211,11 @@ public:
 
 	Yapic::RLock* rlock_singletons;
 
-	PyObject* MethodWrapperType;
-
 	static inline int __init__(PyObject* module, Module* state) {
-		state->STR_ANNOTATIONS = "__annotations__";
-		state->STR_QUALNAME = "__qualname__";
-		state->STR_CALL = "__call__";
-		state->STR_INIT = "__init__";
 		state->STR_KWA_NAME = "name";
 		state->STR_KWA_TYPE = "type";
 		state->STR_ARGS = "__args__";
-		state->STR_PARAMETERS = "__parameters__";
-		state->STR_MODULE = "__module__";
-		state->STR_MRO_ENTRIES = "__mro_entries__";
 		state->STR_ORIGIN = "__origin__";
-		state->STR_ORIG_BASES = "__orig_bases__";
-		state->STR_DICT = "__dict__";
 		state->singletons = PyDict_New();
 
 		state->VALUE.Value(Injectable::Strategy::VALUE).Export("VALUE");
@@ -270,18 +234,9 @@ public:
 			return false;
 		}
 
-		// init MethodWrapperType
-		PyObject* method = PyObject_GetAttrString(state->ExcBase, "__call__");
-		if (method == NULL) {
-			return false;
-		}
-		state->MethodWrapperType = (PyObject*) Py_TYPE(method);
-		Py_DECREF(method);
-
 		if (!Injector::Register(module, __name__) ||
 			!Injectable::Register(module, __name__) ||
 			!BoundInjectable::Register(module, __name__) ||
-			// !InjectableFactory::Register(module) ||
 			!ValueResolver::Register(module, __name__) ||
 			!KwOnly::Register(module, __name__)) {
 			return -1;

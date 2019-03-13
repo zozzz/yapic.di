@@ -2,297 +2,11 @@
 #define AC1E491D_0133_C8FB_12AA_F65E6B95E8A0
 
 #include "./di.hpp"
-#include "./util.hpp"
 
 
 namespace ZenoDI {
 
 namespace _injectable {
-
-	// static inline PyObject* NewVRFromID(PyObject* name, PyObject* id, PyObject* def, PyObject* typeVars, PyObject* g) {
-	// 	if (typeVars != NULL) {
-	// 		PyObject* alias = PyDict_GetItem(typeVars, id); // borrowed, no exception
-	// 		if (alias != NULL) {
-	// 			id = alias;
-	// 		}
-	// 	}
-
-	// 	PyPtr<> injectable(NULL);
-	// 	if (Typing::IsGenericType(id)) {
-	// 		injectable = (PyObject*)Injectable::New(id, Injectable::Strategy::FACTORY, (PyObject*)NULL, typeVars);
-	// 		if (injectable.IsNull()) {
-	// 			return NULL;
-	// 		}
-	// 	}
-
-	// 	return (PyObject*) ValueResolver::New(name, id, def, g, injectable);
-	// }
-
-	// static inline PyObject* NewVR(PyObject* name, PyObject* annots, PyObject* def, PyObject* typeVars, PyObject* g) {
-	// 	assert(name != NULL && PyUnicode_Check(name));
-	// 	assert(annots == NULL || PyDict_Check(annots));
-
-	// 	PyObject* id = annots == NULL ? NULL : PyDict_GetItem(annots, name); // borrowed ref, no exception
-	// 	return NewVRFromID(name, id, def, typeVars, g);
-	// }
-
-	// namespace Collect {
-	// 	/**
-	// 	 * def fn_name(arg1, arg2)
-	// 	 * 		+ normal function
-	// 	 * 		+ has __code__ object
-	// 	 *
-	// 	 * class X:
-	// 	 *     def method(self, a1):
-	// 	 * 			+ bound method (has __self__)
-	// 	 * 			+ has __code__
-	// 	 */
-	// 	namespace Callable {
-	// 		static inline bool GetFunction(PyObject* callable, PyFunctionObject*& func, PyObject*& self) {
-	// 			if (PyFunction_Check(callable)) {
-	// 				func = (PyFunctionObject*) callable;
-	// 				self = NULL;
-	// 				return true;
-	// 			} else if (PyMethod_Check(callable)) {
-	// 				func = (PyFunctionObject*) PyMethod_GET_FUNCTION(callable);
-	// 				assert(PyFunction_Check(func));
-	// 				self = PyMethod_GET_SELF(callable);
-	// 				return true;
-	// 			} else {
-	// 				/**
-	// 				 * class X:
-	// 				 *     def __call__(self): pass
-	// 				 */
-	// 				PyPtr<> __call__ = PyObject_GetAttr(callable, Module::State()->STR_CALL);
-	// 				if (__call__.IsValid()) {
-	// 					if (!PyObject_IsInstance(__call__, Module::State()->MethodWrapperType)) {
-	// 						return GetFunction(__call__, func, self);
-	// 					}
-	// 				} else {
-	// 					PyErr_Clear();
-	// 				}
-	// 			}
-
-	// 			// got builtin or any other unsupported callable object
-	// 			PyErr_Format(Module::State()->ExcProvideError, ZenoDI_Err_GotBuiltinCallable, callable);
-	// 			return NULL;
-	// 		}
-
-	// 		static inline bool Arguments(Injectable* injectable, PyObject* obj, PyObject* typeVars, int offset) {
-	// 			PyFunctionObject* func;
-	// 			PyObject* self;
-	// 			if (!GetFunction(obj, func, self)) {
-	// 				return false;
-	// 			}
-	// 			// printf("Real Function %s SELF %s\n", ZenoDI_REPR(func), ZenoDI_REPR(self));
-
-	// 			if (offset == 0 && self != NULL) {
-	// 				offset = 1;
-	// 			}
-
-	// 			PyCodeObject* code = (PyCodeObject*) PyFunction_GET_CODE(func);
-	// 			if (code != NULL) {
-	// 				assert(PyCode_Check(code));
-	// 			}
-
-	// 			PyObject* annots = PyFunction_GET_ANNOTATIONS(func);
-	// 			if (annots != NULL) {
-	// 				assert(PyDict_CheckExact(annots));
-	// 			}
-
-	// 			PyObject* globals = PyFunction_GET_GLOBALS(func);
-	// 			if (globals != NULL) {
-	// 				assert(PyDict_CheckExact(globals));
-	// 			}
-
-	// 			PyObject* defaults;
-	// 			int argcount = code->co_argcount - offset;
-	// 			if (argcount >= 0) {
-	// 				assert(PyTuple_CheckExact(code->co_varnames));
-	// 				assert(PyTuple_GET_SIZE(code->co_varnames) >= argcount);
-
-	// 				PyPtr<> args = PyTuple_New(argcount);
-	// 				if (args.IsNull()) {
-	// 					return false;
-	// 				}
-
-	// 				defaults = PyFunction_GET_DEFAULTS(func);
-	// 				if (defaults == NULL) {
-	// 					for (int i=offset ; i<code->co_argcount ; ++i) {
-	// 						// TODO: ha nincs típusa, akkor hibát kell adni, mivel nem is tudunk mit injectálni oda
-	// 						PyObject* resolver = NewVR(
-	// 							PyTuple_GET_ITEM(code->co_varnames, i), annots, NULL, typeVars, globals);
-	// 						if (resolver == NULL) {
-	// 							return false;
-	// 						}
-	// 						PyTuple_SET_ITEM(args, i - offset, resolver);
-	// 					}
-	// 				} else {
-	// 					assert(PyTuple_CheckExact(defaults));
-
-	// 					Py_ssize_t defcount = PyTuple_GET_SIZE(defaults);
-	// 					Py_ssize_t defcounter = 0;
-	// 					for (Py_ssize_t i=offset ; i<code->co_argcount ; ++i) {
-	// 						PyObject* def = (code->co_argcount - defcount <= i
-	// 							? PyTuple_GET_ITEM(defaults, defcounter++)
-	// 							: NULL);
-	// 						PyObject* resolver = NewVR(
-	// 							PyTuple_GET_ITEM(code->co_varnames, i), annots, def, typeVars, globals);
-	// 						if (resolver == NULL) {
-	// 							return false;
-	// 						}
-	// 						PyTuple_SET_ITEM(args, i - offset, resolver);
-	// 					}
-	// 				}
-	// 				injectable->args = args.Steal();
-	// 			}
-
-	// 			if (code->co_kwonlyargcount) {
-	// 				assert(PyTuple_GET_SIZE(code->co_varnames) >= code->co_kwonlyargcount + code->co_argcount);
-
-	// 				PyPtr<> kwargs = PyDict_New();
-	// 				if (kwargs.IsNull()) {
-	// 					return false;
-	// 				}
-
-	// 				defaults = PyFunction_GET_KW_DEFAULTS(func);
-	// 				if (defaults == NULL) {
-	// 					for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
-	// 						PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i);
-	// 						PyPtr<> resolver = NewVR(name, annots, NULL, typeVars, globals);
-	// 						if (resolver.IsNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
-	// 							return false;
-	// 						}
-	// 					}
-	// 				} else {
-	// 					assert(PyDict_CheckExact(defaults));
-
-	// 					for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
-	// 						PyObject* name = PyTuple_GET_ITEM(code->co_varnames, i); // borrowed
-	// 						PyObject* def = PyDict_GetItem(defaults, name); // borrowed
-	// 						PyPtr<> resolver = NewVR(name, annots, def, typeVars, globals);
-	// 						if (resolver.IsNull() || PyDict_SetItem(kwargs, name, resolver) == -1) {
-	// 							return false;
-	// 						}
-	// 					}
-	// 				}
-
-	// 				injectable->kwargs = kwargs.Steal();
-	// 			}
-
-	// 			return true;
-	// 		}
-	// 	} /* end namespace Callable */
-
-	// 	namespace Type {
-	// 		static inline bool Attributes(PyObject* attributes, PyObject* type, PyObject* typeVars) {
-	// 			PyPtr<> annots = PyObject_GetAttr(type, Module::State()->STR_ANNOTATIONS);
-	// 			if (annots.IsNull()) {
-	// 				PyErr_Clear();
-	// 				return true;
-	// 			}
-	// 			assert(PyDict_CheckExact(annots));
-
-	// 			if (PyDict_Size(annots) == 0) {
-	// 				return true;
-	// 			}
-
-	// 			PyPtr<> module = PyObject_GetAttr(type, Module::State()->STR_MODULE);
-	// 			if (module.IsValid()) {
-	// 				module = ImportModule(module);
-	// 				if (module.IsNull()) {
-	// 					return false;
-	// 				}
-	// 			} else {
-	// 				return false;
-	// 			}
-
-	// 			PyObject* key;
-	// 			PyObject* value;
-	// 			Py_ssize_t pos = 0;
-	// 			PyPtr<> resolver(NULL);
-
-	// 			while (PyDict_Next(annots, &pos, &key, &value)) {
-	// 				switch (PyDict_Contains(attributes, key)) {
-	// 					case 0:
-	// 						if (Typing::IsInjectableAttr(value)) {
-	// 							PyObject* injectType = Typing::UnpackInjectType(value, typeVars);
-	// 							if (injectType == NULL) {
-	// 								return false;
-	// 							}
-
-	// 							resolver = (PyObject*) NewVRFromID(key, injectType, NULL, typeVars, module);
-	// 							if (resolver.IsNull()) {
-	// 								return false;
-	// 							}
-
-	// 							if (PyDict_SetItem(attributes, key, resolver) == -1) {
-	// 								return false;
-	// 							}
-	// 						}
-	// 						break;
-
-	// 					case 1:
-	// 						continue;
-
-	// 					case -1:
-	// 						return false;
-	// 				}
-	// 			}
-	// 			return true;
-	// 		}
-
-
-	// 		static inline bool Full(Injectable* injectable, PyObject* type, PyObject* typeVars) {
-	// 			PyPtr<> attributes = PyDict_New();
-	// 			if (attributes.IsNull()) {
-	// 				return false;
-	// 			}
-
-	// 			Typing::MroResolver resolver(type, typeVars);
-
-	// 			const PyObject* mro = resolver.Resolve();
-	// 			if (mro == NULL) {
-	// 				return false;
-	// 			}
-
-	// 			PyPtr<> clsDict(NULL);
-	// 			bool hasInit = false;
-	// 			Py_ssize_t l = PyTuple_GET_SIZE(mro);
-	// 			for (Py_ssize_t i = 0; i < l; ++i) {
-	// 				PyObject* entry = PyTuple_GET_ITEM(mro, i);
-	// 				PyObject* type = PyTuple_GET_ITEM(entry, 0);
-	// 				PyObject* vars = PyTuple_GET_ITEM(entry, 1);
-
-	// 				if (!Attributes(attributes, type, vars)) {
-	// 					return false;
-	// 				}
-
-	// 				if (!hasInit) {
-	// 					clsDict = PyObject_GetAttr(type, Module::State()->STR_DICT);
-	// 					if (clsDict.IsNull()) {
-	// 						PyErr_Clear();
-	// 					} else {
-	// 						PyObject* init = PyObject_GetItem(clsDict, Module::State()->STR_INIT);
-	// 						if (init != NULL) {
-	// 							hasInit = _injectable::Collect::Callable::Arguments(injectable, init, vars, 1);
-	// 							Py_DECREF(init);
-	// 							if (!hasInit) {
-	// 								PyErr_Clear();
-	// 							}
-	// 						}
-	// 					}
-	// 				}
-	// 			}
-
-	// 			if (PyDict_Size(attributes) > 0) {
-	// 				injectable->attributes = attributes.Steal();
-	// 			}
-
-	// 			return true;
-	// 		}
-	// 	} /* end namespace Type */
-	// } /* end namespace Collect */
 
 	namespace ResolverFactory {
 		static inline PyObject* NewResolver(PyObject* name, PyObject* type, PyObject* def) {
@@ -685,65 +399,6 @@ namespace _injectable {
 
 		using PosArgs = InvokeFn<AllowKwOnly, HasKwOnly>::CallArgs<Positional>;
 		using KwArgs = InvokeFn<AllowKwOnly, HasKwOnly>::CallArgs<Keyword>;
-
-		/*
-		static FORCEINLINE PyObject* GetCallArgs(Injectable* self, Injector* injector, Injector* owni, int recursion) {
-			assert(PyTuple_CheckExact(self->args));
-
-			register PyObject* tmp = self->args;
-			Py_ssize_t argc = tmp == NULL ? 0 : PyTuple_GET_SIZE(tmp);
-			PyObject* args = PyTuple_New(argc);
-			if (argc == 0) {
-				return args;
-			}
-			if (args != NULL) {
-				for (Py_ssize_t i = 0 ; i<argc ; i++) {
-					ValueResolver* resolver = (ValueResolver*) PyTuple_GET_ITEM(tmp, i);
-					assert(ValueResolver::CheckExact(resolver));
-
-					PyObject* arg = ValueResolver::Resolve<false>(resolver, injector, owni, recursion);
-					if (arg == NULL) {
-						goto error;
-					}
-					PyTuple_SET_ITEM(args, i, arg);
-				}
-				return args;
-				error:
-					Py_DECREF(args);
-					return NULL;
-			}
-			return NULL;
-		}
-
-		static FORCEINLINE PyObject* GetCallKwargs(Injectable* self, Injector* injector, Injector* owni, int recursion) {
-			assert(PyTuple_CheckExact(self->kwargs));
-			PyObject* kwargs = self->kwargs;
-
-			if (kwargs != NULL) {
-				PyObject* result = PyDict_New();
-				PyObject* key;
-				PyObject* value;
-				Py_ssize_t pos = 0;
-
-				if (result == NULL) {
-					return NULL;
-				}
-
-				while (PyDict_Next(kwargs, &pos, &key, &value)) {
-					PyObject* arg = ValueResolver::Resolve<AllowKwOnly>((ValueResolver*) value, injector, owni, recursion);
-					if (arg == NULL || PyDict_SetItem(result, key, arg) < 0) {
-						goto error;
-					}
-				}
-
-				return result;
-				error:
-					Py_XDECREF(result);
-					return NULL;
-			}
-			return Py_None;
-		}
-		*/
 	};
 
 	template<bool AllowKwOnly, bool HasArgs, bool HasKwOnly>
@@ -1222,12 +877,11 @@ PyObject* Injectable::__repr__(Injectable* self) {
 
 void Injectable::__dealloc__(Injectable* self) {
 	Py_CLEAR(self->value);
-	Py_CLEAR(self->resolved);
 	Py_CLEAR(self->args);
 	Py_CLEAR(self->kwargs);
 	Py_CLEAR(self->attributes);
 	Py_CLEAR(self->own_injector);
-	// Py_CLEAR(self->custom_strategy);
+	Py_CLEAR(self->resolved);
 	Super::__dealloc__(self);
 }
 
@@ -1269,55 +923,6 @@ void BoundInjectable::__dealloc__(BoundInjectable* self) {
 }
 
 
-// InjectableFactory* InjectableFactory::New(Injectable* injectable, Injector* injector, Py_hash_t hash) {
-// 	assert(Injectable::CheckExact(injectable));
-// 	assert(Injector::CheckExact(injector));
-
-// 	InjectableFactory* self = InjectableFactory::Alloc();
-// 	if (self == NULL) { return NULL; }
-
-// 	assert(Injectable::CheckExact(injectable));
-// 	assert(Injector::CheckExact(injector));
-
-// 	Py_INCREF(injectable);
-// 	Py_INCREF(injector);
-
-// 	self->injectable = injectable;
-// 	self->injector = injector;
-// 	self->hash = hash;
-
-// 	return self;
-// }
-
-
-// PyObject* InjectableFactory::__call__(InjectableFactory* self, PyObject* args, PyObject** kwargs) {
-// 	return _injectable::Factory<true>(self->injectable, self->injector, self->injectable->own_injector, 0);
-// }
-
-
-// void InjectableFactory::__dealloc__(InjectableFactory* self) {
-// 	Py_XDECREF(self->injectable);
-// 	Py_XDECREF(self->injector);
-// 	Allocator::Dealloc(self);
-// }
-
-
-/*
-
-PyObject* res; \
-		switch (op) { \
-			case Py_LT: res = (self->hash < otherHash ? Py_True : Py_False); break; \
-			case Py_LE: res = (self->hash <= otherHash ? Py_True : Py_False); break; \
-			case Py_EQ: res = (self->hash == otherHash ? Py_True : Py_False); break; \
-			case Py_NE: res = (self->hash != otherHash ? Py_True : Py_False); break; \
-			case Py_GT: res = (self->hash > otherHash ? Py_True : Py_False); break; \
-			case Py_GE: res = (self->hash >= otherHash ? Py_True : Py_False); break; \
-		} \
-		Py_INCREF(res); \
-		return res; \
-
-*/
-
 #define ZenoDI_HashMethods(__cls) \
 	Py_hash_t __cls::__hash__(__cls* self) { \
 		return self->hash; \
@@ -1336,7 +941,6 @@ PyObject* res; \
 
 ZenoDI_HashMethods(Injectable)
 ZenoDI_HashMethods(BoundInjectable)
-// ZenoDI_HashMethods(InjectableFactory)
 
 #undef ZenoDI_HashMethods
 

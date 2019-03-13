@@ -97,6 +97,11 @@ class Injector:
     def descend(self) -> "Injector":
         """ Returns a new Injector instance and inherits providers from the current Injector """
 
+    def injectable(value: Provide_value = None,
+                   strategy: Provide_strategy = FACTORY,
+                   provide: Provide_provide = None) -> Injectable:
+        """ Returns a new Injectable instance. Useful for caching injectable without provideing """
+
     def __getitem__(self, id: Provide_id) -> Any:
         """ Resolve injected value with the given id, slightly faster than ``get`` method """
 
