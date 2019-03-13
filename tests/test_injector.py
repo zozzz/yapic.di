@@ -1,5 +1,5 @@
 import pytest
-from zeno.di import Injector, VALUE, KwOnly, InjectError, ProvideError
+from zeno.di import Injector, VALUE, KwOnly, InjectError, ProvideError, Inject
 
 
 def test_injector_value():
@@ -37,6 +37,8 @@ def test_injector_exec_cls():
 
 
 def test_injector_exec_object():
+    BINST = "BInstance"
+
     injector = Injector()
 
     class A:
@@ -51,13 +53,13 @@ def test_injector_exec_object():
         assert isinstance(arg, B)
         return "fn1"
 
-    def fn2(arg: "BInst"):
+    def fn2(arg: BINST):
         assert arg == "BBBB"
         return "fn2"
 
     injector.provide(A)
     injector.provide(B)
-    injector.provide("BInst", B())
+    injector.provide(BINST, B())
 
     assert injector.exec(fn1) == "fn1"
     assert injector.exec(fn2) == "fn2"
@@ -70,7 +72,7 @@ def test_injector_attribute():
         pass
 
     class B:
-        a: A
+        a: Inject[A]
 
         def __init__(self):
             assert isinstance(self.a, A)
@@ -89,7 +91,7 @@ def test_injector_attribute_inheritance():
         pass
 
     class B:
-        a: A
+        a: Inject[A]
 
         def __init__(self):
             assert isinstance(self.a, A)
@@ -98,7 +100,7 @@ def test_injector_attribute_inheritance():
         pass
 
     class C(B):
-        x: X
+        x: Inject[X]
 
         def __init__(self):
             super().__init__()
@@ -120,8 +122,8 @@ def test_injector_attribute_slots():
         pass
 
     class B:
-        __slots__ = ("a",)
-        a: A
+        __slots__ = ("a", )
+        a: Inject[A]
 
         def __init__(self):
             assert isinstance(self.a, A)
@@ -193,9 +195,7 @@ def test_injector_own_kwonly():
         return "NICE"
 
     injector.provide(Config)
-    injector.provide(fn, provide=[
-        KwOnly(get_kwarg)
-    ])
+    injector.provide(fn, provide=[KwOnly(get_kwarg)])
 
     assert injector.get(fn) == "NICE"
 
@@ -208,7 +208,7 @@ def test_injector_inject_self():
     injector = Injector()
 
     class A:
-        inj: Injector
+        inj: Inject[Injector]
 
         def __init__(self):
             assert isinstance(self.inj, Injector)
@@ -228,7 +228,7 @@ def test_injector_inject_self2():
     injector = Injector()
 
     class A:
-        inj: Injector
+        inj: Inject[Injector]
 
         def __init__(self):
             assert isinstance(self.inj, Injector)
@@ -245,7 +245,7 @@ def test_injector_inject_self2():
         pass
 
     class D:
-        c: C
+        c: Inject[C]
 
     injector.provide(A, provide=[C])
     injector.provide(B)
@@ -259,7 +259,9 @@ def test_injector_inject_self2():
 
     with pytest.raises(InjectError) as exc:
         injector.get(D)
-    exc.match("Not found suitable value for: <ValueResolver name=c id=<class 'test_injector.test_injector_inject_self2.<locals>.C'>>")
+    exc.match(
+        "Not found suitable value for: <ValueResolver name=c id=<class 'test_injector.test_injector_inject_self2.<locals>.C'>>"
+    )
 
 
 def test_injector_kwonly_error():

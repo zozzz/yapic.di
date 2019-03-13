@@ -11,7 +11,7 @@ def test_native_call(benchmark):
     def fn(a: A):
         return a
 
-    benchmark.pedantic(lambda i: fn(i()), args=(A,), iterations=ITERS, rounds=100)
+    benchmark.pedantic(lambda x, y: x(y()), args=(fn, A), iterations=ITERS, rounds=100)
 
 
 def test_similar_native_call(benchmark):
@@ -21,10 +21,7 @@ def test_similar_native_call(benchmark):
     def fn(a: A):
         return a
 
-    scope = {
-        A: A,
-        fn: fn
-    }
+    scope = {A: A, fn: fn}
 
     def do():
         return scope[fn](scope[A]())
@@ -43,7 +40,7 @@ def test_injector_get(benchmark):
     injector.provide(A)
     injector.provide(fn)
 
-    benchmark.pedantic(lambda i: injector.get(i), args=(fn,), iterations=ITERS, rounds=100)
+    benchmark.pedantic(lambda i: injector.get(i), args=(fn, ), iterations=ITERS, rounds=100)
 
 
 def test_injector_getitem(benchmark):
@@ -57,7 +54,7 @@ def test_injector_getitem(benchmark):
     injector.provide(A)
     injector.provide(fn)
 
-    benchmark.pedantic(lambda i: injector[i], args=(fn,), iterations=ITERS, rounds=100)
+    benchmark.pedantic(lambda i: injector[i], args=(fn, ), iterations=ITERS, rounds=100)
 
 
 def test_own_provide(benchmark):
@@ -70,7 +67,7 @@ def test_own_provide(benchmark):
     injector = Injector()
     injector.provide(fn, provide=[A])
 
-    benchmark.pedantic(lambda i: injector.get(i), args=(fn,), iterations=ITERS, rounds=100)
+    benchmark.pedantic(lambda i: injector.get(i), args=(fn, ), iterations=ITERS, rounds=100)
 
 
 def test_cached_provide(benchmark):
@@ -84,7 +81,7 @@ def test_cached_provide(benchmark):
     injector.provide(A)
     factory = injector.provide(fn).resolve
 
-    benchmark.pedantic(lambda i: factory(i), args=(injector,), iterations=ITERS, rounds=100)
+    benchmark.pedantic(lambda i: factory(i), args=(injector, ), iterations=ITERS, rounds=100)
 
 
 def test_custom_factory(benchmark):
@@ -101,7 +98,7 @@ def test_custom_factory(benchmark):
     injector.provide(A, A, cstrategy)
     injector.provide(fn)
 
-    benchmark.pedantic(lambda i: injector[i], args=(fn,), iterations=ITERS, rounds=100)
+    benchmark.pedantic(lambda i: injector[i], args=(fn, ), iterations=ITERS, rounds=100)
 
 
 def test_custom_factory_single(benchmark):
@@ -124,7 +121,7 @@ def test_custom_factory_single(benchmark):
     injector.provide(A, A, cstrategy)
     injector.provide(fn)
 
-    benchmark.pedantic(lambda i: injector[i], args=(fn,), iterations=ITERS, rounds=100)
+    benchmark.pedantic(lambda i: injector[i], args=(fn, ), iterations=ITERS, rounds=100)
 
 
 def test_scoped_singleton(benchmark):
@@ -138,7 +135,7 @@ def test_scoped_singleton(benchmark):
     injector.provide(A, A, SCOPED_SINGLETON)
     injector.provide(fn)
 
-    benchmark.pedantic(lambda i: injector[i], args=(fn,), iterations=ITERS, rounds=100)
+    benchmark.pedantic(lambda i: injector[i], args=(fn, ), iterations=ITERS, rounds=100)
 
 
 def test_singleton(benchmark):
@@ -152,7 +149,7 @@ def test_singleton(benchmark):
     injector.provide(A, A, SINGLETON)
     injector.provide(fn)
 
-    benchmark.pedantic(lambda i: injector[i], args=(fn,), iterations=ITERS, rounds=100)
+    benchmark.pedantic(lambda i: injector[i], args=(fn, ), iterations=ITERS, rounds=100)
 
 
 def test_threadlocal(benchmark):
@@ -170,7 +167,7 @@ def test_threadlocal(benchmark):
             tl.key = value
             return value
 
-    benchmark.pedantic(lambda i: fn(i), args=(A,), iterations=ITERS, rounds=100)
+    benchmark.pedantic(lambda i: fn(i), args=(A, ), iterations=ITERS, rounds=100)
 
     assert fn(A) is fn(A)
 
@@ -181,9 +178,8 @@ def test_value(benchmark):
 
     injector = Injector()
     injector.provide("A", A, VALUE)
-    injector.provide("A", A, VALUE)
 
     def fn(id):
         return injector[id]
 
-    benchmark.pedantic(lambda i: fn(i), args=("A",), iterations=ITERS, rounds=100)
+    benchmark.pedantic(lambda i: fn(i), args=("A", ), iterations=ITERS, rounds=100)

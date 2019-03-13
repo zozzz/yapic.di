@@ -1,3 +1,14 @@
 [
-  "tests/test_generic.py::test_generic_param2"
+  "tests/bench_own_provide.py::test_native_call",
+  "tests/bench_own_provide.py::test_similar_native_call",
+  "tests/bench_own_provide.py::test_injector_get",
+  "tests/bench_own_provide.py::test_injector_getitem",
+  "tests/bench_own_provide.py::test_own_provide",
+  "tests/bench_own_provide.py::test_cached_provide",
+  "tests/bench_own_provide.py::test_custom_factory",
+  "tests/bench_own_provide.py::test_custom_factory_single",
+  "tests/bench_own_provide.py::test_scoped_singleton",
+  "tests/bench_own_provide.py::test_singleton",
+  "tests/bench_own_provide.py::test_threadlocal",
+  "tests/bench_own_provide.py::test_value"
 ]

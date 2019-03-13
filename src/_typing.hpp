@@ -9,12 +9,12 @@ namespace ZenoDI { namespace Typing {
 
 
 static inline bool IsGeneric(const PyTypeObject* value) {
-    return Module::State()->Generic.IsSubclass(value);
+    return value != NULL && Module::State()->Generic.IsSubclass(value);
 }
 
 
 static inline bool IsGenericType(const PyObject* value) {
-    return Module::State()->GenericAlias.Check(value);
+    return value != NULL && Module::State()->GenericAlias.Check(value);
 }
 
 

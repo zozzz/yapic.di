@@ -26,21 +26,21 @@ KwOnly* KwOnly::New(PyObject* getter) {
 		return NULL;
 	}
 
-	self->name_resolver = (ValueResolver*) PyDict_GetItem(self->getter->kwargs, Module::State()->STR_KWA_NAME);
+	self->name_resolver = Injectable::GetKwArg(self->getter, Module::State()->STR_KWA_NAME);
 	if (self->name_resolver == NULL) {
 		PyErr_SetString(Module::State()->ExcProvideError, ZenoDI_Err_KwOnlyGetterMustHaveNameKw);
 		return NULL;
 	} else {
 		assert(ValueResolver::CheckExact(self->name_resolver));
 		Py_INCREF(self->name_resolver);
-		ValueResolver::SetName(self->name_resolver, NULL);
+		// ValueResolver::SetName(self->name_resolver, NULL);
 	}
 
-	self->type_resolver = (ValueResolver*) PyDict_GetItem(self->getter->kwargs, Module::State()->STR_KWA_TYPE);
+	self->type_resolver = Injectable::GetKwArg(self->getter, Module::State()->STR_KWA_TYPE);
 	if (self->type_resolver != NULL) {
 		assert(ValueResolver::CheckExact(self->type_resolver));
 		Py_INCREF(self->type_resolver);
-		ValueResolver::SetName(self->type_resolver, NULL);
+		// ValueResolver::SetName(self->type_resolver, NULL);
 	}
 
 	return self.Steal();

@@ -58,23 +58,23 @@ namespace ZenoDI {
 			assert(PyErr_Occurred() == NULL);
 
 			// maybe forwardref...
-			if (AllowForwardRef) {
-				PyObject* globals = self->globals;
-				if (PyUnicode_CheckExact(type) && globals != NULL) {
-					PyObject* fwType = ResolveNameFromGlobals(globals, type);
-					if (fwType != NULL) {
-						Py_hash_t fwHash = PyObject_Hash(fwType);
-						if (fwHash == -1) {
-							PyErr_Clear();
-						}
-						result = GetByType<false>(self, injector, own_injector, fwType, fwHash, recursion);
-						Py_DECREF(fwType);
-						ValueResulver_ReturnIfOk(result)
-					} else if (PyErr_Occurred()) {
-						PyErr_Clear();
-					}
-				}
-			}
+			// if (AllowForwardRef) {
+			// 	PyObject* globals = self->globals;
+			// 	if (PyUnicode_CheckExact(type) && globals != NULL) {
+			// 		PyObject* fwType = ResolveNameFromGlobals(globals, type);
+			// 		if (fwType != NULL) {
+			// 			Py_hash_t fwHash = PyObject_Hash(fwType);
+			// 			if (fwHash == -1) {
+			// 				PyErr_Clear();
+			// 			}
+			// 			result = GetByType<false>(self, injector, own_injector, fwType, fwHash, recursion);
+			// 			Py_DECREF(fwType);
+			// 			ValueResulver_ReturnIfOk(result)
+			// 		} else if (PyErr_Occurred()) {
+			// 			PyErr_Clear();
+			// 		}
+			// 	}
+			// }
 
 			// get Injector
 			if ((PyTypeObject*) type == const_cast<PyTypeObject*>(Injector::PyType())) {
@@ -88,10 +88,11 @@ namespace ZenoDI {
 
 			return NULL;
 		}
+
 	} /* end namespace _resolver */
 
 
-ValueResolver* ValueResolver::New(PyObject* name, PyObject* id, PyObject* default_value, PyObject* globals, PyObject* injectable) {
+ValueResolver* ValueResolver::New(PyObject* name, PyObject* id, PyObject* default_value, PyObject* injectable) {
 	ValueResolver* self = ValueResolver::Alloc();
 	if (self == NULL) {
 		return NULL;
@@ -99,33 +100,37 @@ ValueResolver* ValueResolver::New(PyObject* name, PyObject* id, PyObject* defaul
 
 	Py_XINCREF(name);
 	Py_XINCREF(default_value);
-	Py_XINCREF(globals);
 	Py_XINCREF(injectable);
 
 	self->name = name;
 	self->default_value = default_value;
-	self->globals = globals;
 	self->injectable = injectable;
 
-	if (id != NULL) {
-		Py_INCREF(id);
-		self->id = id;
-		self->id_hash = PyObject_Hash(id);
-
-		if (self->id_hash == -1) {
-			Py_DECREF(self);
-			return NULL;
-		}
-	} else {
-		self->id = NULL;
-		self->id_hash = 0;
-	}
+	ValueResolver::SetId(self, id);
 	return self;
 }
 
 
 template<bool UseKwOnly>
 PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector, Injector* own_injector, int recursion) {
+	if (self->id != NULL && Yapic::ForwardDecl::Check(self->id)) {
+		PyPtr<> newId = reinterpret_cast<Yapic::ForwardDecl*>(self->id)->Resolve();
+		if (newId) {
+			ValueResolver::SetId(self, newId);
+
+			if (Module::State()->Typing.IsGenericType(newId)) {
+				assert(self->injectable == NULL);
+				self->injectable = (PyObject*)Injectable::New(newId, Injectable::Strategy::FACTORY, (PyObject*)NULL);
+				if (self->injectable == NULL) {
+					return NULL;
+				}
+			}
+		} else {
+			PyErr_Clear();
+			ValueResolver::SetId(self, reinterpret_cast<Yapic::ForwardDecl*>(self->id)->expr);
+		}
+	}
+
 	// TODO: unpack type, handle Optional[...]
 	PyObject* type = self->id;
 	PyObject* result;
@@ -165,12 +170,18 @@ PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector, Inject
 
 
 void ValueResolver::SetId(ValueResolver* self, PyObject* id) {
-	if (self->id != NULL) {
-		Py_DECREF(self->id);
-	}
+	Py_XDECREF(self->id);
+
 	if (id != NULL) {
 		Py_INCREF(id);
+		self->id_hash = PyObject_Hash(id);
+		if (self->id_hash == -1) {
+			PyErr_Clear();
+		}
+	} else {
+		self->id_hash = -1;
 	}
+
 	self->id = id;
 }
 
@@ -201,7 +212,7 @@ void ValueResolver::__dealloc__(ValueResolver* self) {
 	Py_CLEAR(self->name);
 	Py_CLEAR(self->id);
 	Py_CLEAR(self->default_value);
-	Py_CLEAR(self->globals);
+	// Py_CLEAR(self->globals);
 	Super::__dealloc__(self);
 }
 

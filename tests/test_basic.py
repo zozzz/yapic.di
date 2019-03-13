@@ -11,21 +11,25 @@ def test_provide_callable():
     def normalfn():
         pass
 
-    @injector.provide
-    def fn_with_args(a1, a2, a3):
-        pass
+    with pytest.raises(ProvideError) as exc:
 
-    @injector.provide
-    def fn_with_defs1(a1, a2=2):
-        pass
+        @injector.provide
+        def fn_with_args(a1):
+            pass
 
-    @injector.provide
-    def fn_with_defs2(a1, a2=2, a3=3):
-        pass
+    assert "Argument must have a type" in str(exc.value)
 
-    @injector.provide
-    def fn_with_defs3(a1, a2=2, a3=3, a4=4):
-        pass
+    # @injector.provide
+    # def fn_with_defs1(a1, a2=2):
+    #     pass
+
+    # @injector.provide
+    # def fn_with_defs2(a1, a2=2, a3=3):
+    #     pass
+
+    # @injector.provide
+    # def fn_with_defs3(a1, a2=2, a3=3, a4=4):
+    #     pass
 
     @injector.provide
     def fn_kwonly(*, kw1, kw2):
@@ -44,19 +48,11 @@ def test_provide_callable():
         pass
 
     @injector.provide
-    def fn_mixed1(a1, *, kw1):
-        pass
-
-    @injector.provide
     def fn_mixed2(a1=1, *, kw1):
         pass
 
     @injector.provide
-    def fn_mixed3(a1, *, kw4=4):
-        pass
-
-    @injector.provide
-    def fn_mixed4(a1=1, *, kw1=1):
+    def fn_mixed3(a1=1, *, kw4=4):
         pass
 
     class X:
@@ -72,11 +68,11 @@ def test_provide_callable():
 
     class CC:
         @classmethod
-        def cls_method(cls, arg1):
+        def cls_method(cls, arg1: X):
             pass
 
         @staticmethod
-        def static_method(arg1):
+        def static_method(arg1: X):
             pass
 
     injector.provide(X)
@@ -85,13 +81,13 @@ def test_provide_callable():
     injector.provide(CC.cls_method)
     injector.provide(CC.static_method)
 
-    with pytest.raises(ProvideError) as exc:
+    with pytest.raises(TypeError) as exc:
         injector.provide(Injector.provide)
-    exc.match("^Cannot provide builtin / c-extension")
+    exc.match("^Cannot get type hints from built / c-extension method")
 
-    with pytest.raises(ProvideError) as exc:
+    with pytest.raises(TypeError) as exc:
         injector.provide(injector.provide)
-    exc.match("^Cannot provide builtin / c-extension")
+    exc.match("^Cannot get type hints from built / c-extension method")
 
 
 def test_provide_attrs():

@@ -22,12 +22,15 @@
 #include <yapic/pyptr.hpp>
 #include <yapic/string-builder.hpp>
 #include <yapic/thread.hpp>
+#include <yapic/typing.hpp>
 
 #include "./errors.hpp"
 
 namespace ZenoDI {
 
 using Yapic::PyPtr;
+
+class ValueResolver;
 
 class Injector: public Yapic::Type<Injector, Yapic::Object> {
 public:
@@ -102,10 +105,11 @@ public:
 	Yapic_PrivateNew;
 
 	static Injectable* New(PyObject* value, Strategy strategy, PyObject* provide);
-	static Injectable* New(PyObject* value, Strategy strategy, PyObject* provide, PyObject* typeVars);
 	static Injectable* New(PyObject* value, PyObject* strategy, PyObject* provide);
 	static inline PyObject* Resolve(Injectable* self, Injector* injector, int recursion);
 	static bool ToString(Injectable* self, UnicodeBuilder* builder, int level);
+	static ValueResolver* GetPosArg(Injectable* self, Py_ssize_t index);
+	static ValueResolver* GetKwArg(Injectable* self, PyObject* name);
 	// static PyObject* Exec(Injectable* self, Injector* injector);
 	// egy injectort vár paraméternek, és így vissza tudja adni azt, amit kell
 	static PyObject* __call__(Injectable* self, PyObject* args, PyObject** kwargs);
@@ -162,13 +166,12 @@ public:
 	PyObject* id;
 	PyObject* name;
 	PyObject* default_value;
-	PyObject* globals;
 	PyObject* injectable;
 	Py_hash_t id_hash;
 
 	Yapic_PrivateNew;
 
-	static ValueResolver* New(PyObject* name, PyObject* id, PyObject* default_value, PyObject* globals, PyObject* injectable);
+	static ValueResolver* New(PyObject* name, PyObject* id, PyObject* default_value, PyObject* injectable);
 	template<bool UseKwOnly>
 	static PyObject* Resolve(ValueResolver* self, Injector* injector, Injector* own_injector, int recursion);
 	static void SetId(ValueResolver* self, PyObject* id);
@@ -227,8 +230,9 @@ public:
 	ModuleExc ExcNoKwOnly;
 
 	ModuleRef Inject;
-	ModuleRef Generic;
-	ModuleRef GenericAlias;
+	ModuleRef typing;
+
+	Yapic::Typing Typing;
 
 	Yapic::RLock* rlock_singletons;
 
@@ -260,9 +264,11 @@ public:
 		state->ExcInjectError.Define("InjectError", state->ExcBase);
 		state->ExcNoKwOnly.Define("NoKwOnly", state->ExcProvideError);
 
-		state->Generic.Import("typing", "Generic");
-		state->GenericAlias.Import("typing", "_GenericAlias");
 		state->Inject.Import("zeno.di.inject", "Inject");
+		state->typing.Import("typing");
+		if (!state->Typing.Init(state->typing)) {
+			return false;
+		}
 
 		// init MethodWrapperType
 		PyObject* method = PyObject_GetAttrString(state->ExcBase, "__call__");

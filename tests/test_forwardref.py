@@ -1,7 +1,5 @@
-from typing import Generic, TypeVar
-
 import xxx
-from zeno.di import Injector
+from zeno.di import Injector, Inject
 
 
 class A:
@@ -20,9 +18,9 @@ def test_forwardref_fn():
 
 def test_forwardref_class():
     class B:
-        a: "A"
-        b: "xxx.SomeModule_A"
-        c: "xxx.some_module.SomeModule_B"
+        a: Inject["A"]
+        b: Inject["xxx.SomeModule_A"]
+        c: Inject["xxx.some_module.SomeModule_B"]
 
     injector = Injector()
     injector.provide(A)
@@ -40,7 +38,7 @@ class X:
 
 
 class Y:
-    x: "X"
+    x: Inject["X"]
 
     def __init__(self, xxx: "X"):
         assert self.x is not xxx
@@ -63,3 +61,18 @@ def test_forwardref_class_global():
     injector.provide(fn)
 
     assert injector[fn] == "OK"
+
+
+def test_forwardref_class2():
+    class Z:
+        z: Inject[xxx.GenericClass["X"]]
+
+    injector = Injector()
+    injector.provide(X)
+    injector.provide(xxx.GenericClass)
+    injector.provide(Z)
+
+    assert isinstance(injector.get(Z), Z)
+    assert isinstance(injector.get(Z).z, xxx.GenericClass)
+    assert isinstance(injector.get(Z).z.attr, X)
+    assert isinstance(injector.get(Z).z.x_init, X)
