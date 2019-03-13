@@ -122,39 +122,42 @@ namespace _injectable {
 		}
 
 		static bool Attribute(Injectable* injectable, PyObject* hints) {
+			Py_ssize_t l = PyDict_Size(hints);
+			Py_ssize_t attrsSize = 0;
+			PyPtr<> attrs = PyTuple_New(l);
+			if (!attrs) {
+				return false;
+			}
+
 			Py_ssize_t pos = 0;
 			PyObject* key;
 			PyObject* value;
-
-			PyPtr<> attrs = PyDict_New();
-			if (!attrs) {
-				return NULL;
-			}
-
-			PyPtr<> resolver(NULL);
+			PyObject* resolver;
 			PyPtr<> attrType(NULL);
+
 			while (PyDict_Next(hints, &pos, &key, &value)) {
 				attrType = GetInjectableAttr(value);
 				if (attrType) {
 					resolver = NewResolver(key, attrType, NULL);
-					if (resolver) {
-						if (PyDict_SetItem(attrs, key, resolver) == -1) {
-							return false;
-						}
+					if (resolver != NULL) {
+						PyTuple_SET_ITEM(attrs, attrsSize, resolver);
+						++attrsSize;
 					} else {
 						return false;
 					}
+				} else if (PyErr_Occurred()) {
+					return false;
 				} else {
-					if (PyErr_Occurred()) {
-						return false;
-					} else {
-						continue;
-					}
+					continue;
 				}
 			}
 
 			injectable->attributes = attrs.Steal();
-			return true;
+			if (_PyTuple_Resize(&injectable->attributes, attrsSize) == -1) {
+				return false;
+			} else {
+				return true;
+			}
 		}
 
 	} /* end namespace Resolver */
@@ -458,16 +461,23 @@ namespace _injectable {
 		static FORCEINLINE bool SetAttributes(Injectable* self, Injector* injector, Injector* owni, int recursion, PyObject* obj) {
 			PyObject* attrs = self->attributes;
 			if (attrs != NULL) {
-				assert(PyDict_CheckExact(attrs));
+				assert(PyTuple_CheckExact(attrs));
 
-				PyObject* akey;
-				PyObject* avalue;
+				Py_ssize_t l = PyTuple_GET_SIZE(attrs);
+				ValueResolver* vr;
 				PyObject* value;
-				Py_ssize_t apos = 0;
-				while (PyDict_Next(attrs, &apos, &akey, &avalue)) {
-					assert(ValueResolver::CheckExact(avalue));
-					value = ValueResolver::Resolve<false>((ValueResolver*) avalue, injector, owni, recursion);
-					if (value == NULL || PyObject_GenericSetAttr(obj, akey, value) < 0) {
+
+				for (Py_ssize_t i = 0; i < l; ++i) {
+					vr = (ValueResolver*)PyTuple_GET_ITEM(attrs, i);
+					assert(vr != NULL && ValueResolver::CheckExact(vr));
+					value = ValueResolver::Resolve<false>(vr, injector, owni, recursion);
+					if (value != NULL) {
+						bool succ = PyObject_GenericSetAttr(obj, vr->name, value) == 0;
+						Py_DECREF(value);
+						if (!succ) {
+							return false;
+						}
+					} else {
 						return false;
 					}
 				}
