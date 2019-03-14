@@ -38,10 +38,21 @@ namespace _injectable {
 		}
 
 		static inline PyObject* GetInjectableAttr(PyObject* inject) {
-			if (Yapic::ForwardDecl::Check(inject)) {
-				Yapic::ForwardDecl* forward = reinterpret_cast<Yapic::ForwardDecl*>(inject);
-				if (IsInjectable(forward->decl)) {
-					return forward->UnpackGeneric();
+			if (Module::State()->Typing.IsForwardDecl(inject)) {
+				// Yapic::ForwardDecl* forward = reinterpret_cast<Yapic::ForwardDecl*>(inject);
+				PyPtr<> unpacked = Module::State()->Typing.UnpackForwardDecl(inject);
+				if (unpacked) {
+					assert(PyTuple_CheckExact(unpacked));
+					if (Module::State()->Inject.Eq(PyTuple_GET_ITEM(unpacked, 0))) {
+						PyObject* args = PyTuple_GET_ITEM(unpacked, 1);
+						assert(PyTuple_GET_SIZE(args) == 1);
+
+						args = PyTuple_GET_ITEM(args, 0);
+						Py_INCREF(args);
+						return args;
+					} else {
+						return NULL;
+					}
 				} else {
 					return NULL;
 				}

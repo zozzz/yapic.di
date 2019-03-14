@@ -93,7 +93,7 @@ ValueResolver* ValueResolver::New(PyObject* name, PyObject* id, PyObject* defaul
 
 template<bool UseKwOnly>
 PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector, Injector* own_injector, int recursion) {
-	if (self->id != NULL && Yapic::ForwardDecl::Check(self->id)) {
+	if (self->id != NULL && Module::State()->Typing.IsForwardDecl(self->id)) {
 		PyPtr<> newId = reinterpret_cast<Yapic::ForwardDecl*>(self->id)->Resolve();
 		if (newId) {
 			ValueResolver::SetId(self, newId);
