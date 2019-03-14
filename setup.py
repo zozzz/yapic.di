@@ -139,6 +139,10 @@ class Benchmark(Command):
 # typing: https://github.com/python/typing/issues/84
 setup(
     name="yapic.di",
+    version=VERSION,
+    url="https://github.com/zozzz/yapic.di",
+    author="Zoltan Vetesi",
+    author_email="vetesi.zoltan@gmail.com",
     packages=["yapic.di"],
     package_dir={"yapic.di": "src"},
     package_data={"yapic.di": ["_di.pyi"]},
