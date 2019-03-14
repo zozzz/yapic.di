@@ -1,5 +1,10 @@
 image: Visual Studio 2017
 
+branches:
+  only:
+    - master
+    - release
+
 environment:
   CIBW_BUILD: cp37-*
   CIBW_TEST_REQUIRES: pytest
@@ -14,8 +19,14 @@ install:
 platform: [x64]
 
 build_script:
+  - ps: "Get-ChildItem Env:"
   - cmd: python -m cibuildwheel --output-dir wheelhouse
+  - ps: >-
+      if (($env:APPVEYOR_REPO_BRANCH -eq "release") -and ($env:APPVEYOR_REPO_TAG -eq "true")) {
+        Invoke-Expression "python -m pip install twine"
+        Invoke-Expression "python -m twine upload --skip-existing wheelhouse/*.whl"
+      }
 
-artifacts:
-  - path: "wheelhouse\\*.whl"
-    name: Wheels
+# artifacts:
+#   - path: "wheelhouse\\*.whl"
+#     name: Wheels
