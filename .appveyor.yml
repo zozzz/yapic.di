@@ -1,0 +1,16 @@
+environment:
+  CIBW_BUILD: cp37-*
+  CIBW_TEST_REQUIRES: pytest
+  CIBW_TEST_COMMAND:
+
+install:
+  - set PATH=C:\Python37;%PATH%
+  - cmd: python -m pip install --upgrade cibuildwheel
+  - cmd: touch .cibuildwheel
+
+build_script:
+  - cmd: python -m cibuildwheel --output-dir wheelhouse
+
+artifacts:
+  - path: "wheelhouse\\*.whl"
+    name: Wheels
