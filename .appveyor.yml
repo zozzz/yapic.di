@@ -2,8 +2,8 @@ image: Visual Studio 2017
 
 environment:
   CIBW_BUILD: cp37-*
-  # CIBW_TEST_REQUIRES: pytest
-  # CIBW_TEST_COMMAND: pytest -x -s -v tests
+  CIBW_TEST_REQUIRES: pytest
+  CIBW_TEST_COMMAND: python -m pytest -x -s -v C:\projects\yapic-di\tests
 
 install:
   - ps: (Get-Content .gitmodules | %{$_ -Replace "git@github.com:", "https://github.com/"}) | Out-File .gitmodules -Encoding ASCII
@@ -12,7 +12,7 @@ install:
   - cmd: python -m pip install --upgrade cibuildwheel
   - cmd: touch .cibuildwheel
 
-platform: [x86, x64]
+platform: [x64]
 
 build_script:
   - cmd: python -m cibuildwheel --output-dir wheelhouse
