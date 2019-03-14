@@ -111,4 +111,4 @@ playground
 
 # pytest
 .pytest_cache
-
+.benchmarks
