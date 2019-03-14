@@ -21,7 +21,7 @@ platform: [x64]
 build_script:
   - cmd: python -m cibuildwheel --output-dir wheelhouse
   - ps: >-
-      if (($env:APPVEYOR_REPO_BRANCH -eq "release") -and ($env:APPVEYOR_REPO_TAG -eq "true")) {
+      if ($env:APPVEYOR_REPO_TAG -eq "true") {
         Invoke-Expression "python -m pip install twine"
         Invoke-Expression "python -m twine upload --skip-existing wheelhouse/*.whl"
       }
