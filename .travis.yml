@@ -11,6 +11,13 @@ matrix:
       sudo: required
       python: "3.7"
 
+git:
+  submodules: false
+
+before_install:
+  - sed -i 's/git@github.com:/https:\/\/github.com\//' .gitmodules
+  - git submodule update --init --recursive
+
 install:
   - pip3 install --upgrade cibuildwheel
 
