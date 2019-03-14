@@ -9,8 +9,6 @@ environment:
   CIBW_BUILD: cp37-*
   CIBW_TEST_REQUIRES: pytest
   CIBW_TEST_COMMAND: python -m pytest -x -s -v C:\projects\yapic-di\tests
-  USERNAME: zozzz
-  PASSWORD: { secure: 0f31RQ9llcWjZscR5rB1wA== }
 
 install:
   - ps: (Get-Content .gitmodules | %{$_ -Replace "git@github.com:", "https://github.com/"}) | Out-File .gitmodules -Encoding ASCII
@@ -21,7 +19,6 @@ install:
 platform: [x64]
 
 build_script:
-  - ps: "Get-ChildItem Env:"
   - cmd: python -m cibuildwheel --output-dir wheelhouse
   - ps: >-
       if (($env:APPVEYOR_REPO_BRANCH -eq "release") -and ($env:APPVEYOR_REPO_TAG -eq "true")) {
