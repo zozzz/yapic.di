@@ -1,3 +1,5 @@
+image: Visual Studio 2017
+
 environment:
   CIBW_BUILD: cp37-*
   CIBW_TEST_REQUIRES: pytest
@@ -9,6 +11,8 @@ install:
   - set PATH=C:\Python37;%PATH%
   - cmd: python -m pip install --upgrade cibuildwheel
   - cmd: touch .cibuildwheel
+
+platform: [x86, x64]
 
 build_script:
   - cmd: python -m cibuildwheel --output-dir wheelhouse
