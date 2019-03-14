@@ -1,6 +1,6 @@
-# from zeno.di.injector import Injector
-# from zeno.di.injector_new import Injector
-from zeno.di import Injector, VALUE
+# from yapic.di.injector import Injector
+# from yapic.di.injector_new import Injector
+from yapic.di import Injector, VALUE
 
 
 # def test_scope_get(benchmark):

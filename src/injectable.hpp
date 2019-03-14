@@ -4,7 +4,7 @@
 #include "./di.hpp"
 
 
-namespace ZenoDI {
+namespace YapicDI {
 
 namespace _injectable {
 
@@ -87,7 +87,7 @@ namespace _injectable {
 				if (argType == Py_None) {
 					argType = NULL;
 					if (!KwOnly && argDef == NULL) {
-						PyErr_SetString(Module::State()->ExcProvideError, ZenoDI_Err_CallableArgumentUntyped);
+						PyErr_SetString(Module::State()->ExcProvideError, YapicDI_Err_CallableArgumentUntyped);
 						return NULL;
 					}
 				}
@@ -207,7 +207,7 @@ namespace _injectable {
 				return NULL;
 			}
 		} else {
-			PyErr_SetString(Module::State()->ExcProvideError, ZenoDI_Err_ProvideArgMustIterable);
+			PyErr_SetString(Module::State()->ExcProvideError, YapicDI_Err_ProvideArgMustIterable);
 			return NULL;
 		}
 
@@ -273,8 +273,8 @@ namespace _injectable {
 	template<typename Invoker>
 	struct Value_Invoke {
 		static FORCEINLINE PyObject* Get(Injectable* self, Injector* injector, Injector* owni, int recursion) {
-			if (++recursion >= ZenoDI_MAX_RECURSION) {
-				PyErr_Format(PyExc_RecursionError, ZenoDI_Err_RecursionError, self);
+			if (++recursion >= YapicDI_MAX_RECURSION) {
+				PyErr_Format(PyExc_RecursionError, YapicDI_Err_RecursionError, self);
 				return NULL;
 			}
 			return Invoker::Invoke(self, injector, owni, recursion);
@@ -606,7 +606,7 @@ Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyOb
 		self->get_value = &_injectable::BasicValue::Get;
 
 		if (provide != NULL) {
-			PyErr_SetString(Module::State()->ExcProvideError, ZenoDI_Err_GotProvideForValue);
+			PyErr_SetString(Module::State()->ExcProvideError, YapicDI_Err_GotProvideForValue);
 			return NULL;
 		}
 	}
@@ -622,7 +622,7 @@ Injectable* Injectable::New(PyObject* value, PyObject* strategy, PyObject* provi
 	if (strategy != NULL) {
 		if (!PyLong_Check(strategy)) {
 			if (!PyCallable_Check(strategy)) {
-				PyErr_Format(Module::State()->ExcProvideError, ZenoDI_Err_GotInvalidStrategy, strategy);
+				PyErr_Format(Module::State()->ExcProvideError, YapicDI_Err_GotInvalidStrategy, strategy);
 				return NULL;
 			} else {
 				strat = Injectable::Strategy::CUSTOM;
@@ -637,7 +637,7 @@ Injectable* Injectable::New(PyObject* value, PyObject* strategy, PyObject* provi
 		} else {
 			strat = (Injectable::Strategy) PyLong_AS_LONG(strategy);
 			if (strat <= 0 || strat > Injectable::Strategy::MAX) {
-				PyErr_Format(Module::State()->ExcProvideError, ZenoDI_Err_GotInvalidStrategyInt, strategy);
+				PyErr_Format(Module::State()->ExcProvideError, YapicDI_Err_GotInvalidStrategyInt, strategy);
 				return NULL;
 			}
 		}
@@ -662,7 +662,7 @@ PyObject* Injectable::__call__(Injectable* self, PyObject* args, PyObject** kwar
 			return self->get_value(self, injector, self->own_injector, 0);
 		}
 	}
-	PyErr_SetString(PyExc_TypeError, ZenoDI_Err_OneInjectorArg);
+	PyErr_SetString(PyExc_TypeError, YapicDI_Err_OneInjectorArg);
 	return NULL;
 }
 
@@ -671,7 +671,7 @@ PyObject* Injectable::bind(Injectable* self, Injector* injector) {
 	if (Injector::CheckExact(injector)) {
 		return (PyObject*) BoundInjectable::New(self, injector, self->hash);
 	} else {
-		PyErr_SetString(PyExc_TypeError, ZenoDI_Err_OneInjectorArg);
+		PyErr_SetString(PyExc_TypeError, YapicDI_Err_OneInjectorArg);
 		return NULL;
 	}
 }
@@ -681,7 +681,7 @@ PyObject* Injectable::resolve(Injectable* self, Injector* injector) {
 	if (injector != NULL && Injector::CheckExact(injector)) {
 		return Injectable::Resolve(self, (Injector*) injector, 0);
 	} else {
-		PyErr_SetString(PyExc_TypeError, ZenoDI_Err_OneInjectorArg);
+		PyErr_SetString(PyExc_TypeError, YapicDI_Err_OneInjectorArg);
 		return NULL;
 	}
 }
@@ -933,7 +933,7 @@ void BoundInjectable::__dealloc__(BoundInjectable* self) {
 }
 
 
-#define ZenoDI_HashMethods(__cls) \
+#define YapicDI_HashMethods(__cls) \
 	Py_hash_t __cls::__hash__(__cls* self) { \
 		return self->hash; \
 	} \
@@ -949,11 +949,11 @@ void BoundInjectable::__dealloc__(BoundInjectable* self) {
 	}
 
 
-ZenoDI_HashMethods(Injectable)
-ZenoDI_HashMethods(BoundInjectable)
+YapicDI_HashMethods(Injectable)
+YapicDI_HashMethods(BoundInjectable)
 
-#undef ZenoDI_HashMethods
+#undef YapicDI_HashMethods
 
-} // end namespace ZenoDI
+} // end namespace YapicDI
 
 #endif /* AC1E491D_0133_C8FB_12AA_F65E6B95E8A0 */

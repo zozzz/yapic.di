@@ -12,9 +12,9 @@ from setuptools import Command
 VERSION = "1.0.0"
 
 define_macros = {
-    "ZENO_DI_VERSION_MAJOR": VERSION.split(".")[0],
-    "ZENO_DI_VERSION_MINOR": VERSION.split(".")[1],
-    "ZENO_DI_VERSION_PATCH": VERSION.split(".")[2]
+    "YAPIC_DI_VERSION_MAJOR": VERSION.split(".")[0],
+    "YAPIC_DI_VERSION_MINOR": VERSION.split(".")[1],
+    "YAPIC_DI_VERSION_PATCH": VERSION.split(".")[2]
 }
 undef_macros = []
 extra_compile_args = []  # -flto
@@ -52,7 +52,7 @@ def root(*p):
 
 
 cpp_ext = Extension(
-    name="zeno.di._di",
+    name="yapic.di._di",
     sources=["src/di.cpp"],
     include_dirs=["./libs/yapic.core/src/yapic/core/include"],
     depends=glob("src/*.hpp") + glob("./libs/yapic.core/src/yapic/core/include/**/*.hpp"),
@@ -138,10 +138,10 @@ class Benchmark(Command):
 
 # typing: https://github.com/python/typing/issues/84
 setup(
-    name="zeno.di",
-    packages=["zeno.di"],
-    package_dir={"zeno.di": "src"},
-    package_data={"zeno.di": ["_di.pyi"]},
+    name="yapic.di",
+    packages=["yapic.di"],
+    package_dir={"yapic.di": "src"},
+    package_data={"yapic.di": ["_di.pyi"]},
     ext_modules=[cpp_ext],
     tests_require=["pytest"],
     python_requires=">=3.7",

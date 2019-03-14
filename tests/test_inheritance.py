@@ -1,5 +1,5 @@
 import pytest
-from zeno.di import Injector, VALUE
+from yapic.di import Injector, VALUE
 
 
 def test_injector_descend():

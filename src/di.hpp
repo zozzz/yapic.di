@@ -2,10 +2,10 @@
 #define AB77B960_F133_C8FB_1370_B184655AB464
 
 // USE ONLY FOR DEBUGGING
-#define ZenoDI_REPR(o) (((PyObject*)o) == NULL ? "<NULL>" : ((char*) PyUnicode_DATA(PyObject_Repr(((PyObject*)o)))))
-#define ZenoDI_DUMP(o) printf(#o " = %s\n", ZenoDI_REPR(o))
+#define YapicDI_REPR(o) (((PyObject*)o) == NULL ? "<NULL>" : ((char*) PyUnicode_DATA(PyObject_Repr(((PyObject*)o)))))
+#define YapicDI_DUMP(o) printf(#o " = %s\n", YapicDI_REPR(o))
 
-#define ZenoDI_MAX_RECURSION 1000
+#define YapicDI_MAX_RECURSION 1000
 
 #ifdef _MSC_VER
 #	define FORCEINLINE __forceinline
@@ -26,7 +26,7 @@
 
 #include "./errors.hpp"
 
-namespace ZenoDI {
+namespace YapicDI {
 
 using Yapic::PyPtr;
 
@@ -186,7 +186,7 @@ public:
 	using ModuleExc = Yapic::ModuleExc<Module>;
 	using ModuleRef = Yapic::ModuleRef<Module>;
 
-	static constexpr const char* __name__ = "zeno.di";
+	static constexpr const char* __name__ = "yapic.di";
 
 	ModuleVar STR_KWA_NAME;
 	ModuleVar STR_KWA_TYPE;
@@ -228,7 +228,7 @@ public:
 		state->ExcInjectError.Define("InjectError", state->ExcBase);
 		state->ExcNoKwOnly.Define("NoKwOnly", state->ExcProvideError);
 
-		state->Inject.Import("zeno.di.inject", "Inject");
+		state->Inject.Import("yapic.di.inject", "Inject");
 		state->typing.Import("typing");
 		if (!state->Typing.Init(state->typing)) {
 			return false;
@@ -268,6 +268,6 @@ template<class T> inline T& operator&= (T& a, T b) { return (T&)((int&)a &= (int
 template<class T> inline T& operator^= (T& a, T b) { return (T&)((int&)a ^= (int)b); }
 
 
-} // end namespace ZenoDI
+} // end namespace YapicDI
 
 #endif /* AB77B960_F133_C8FB_1370_B184655AB464 */

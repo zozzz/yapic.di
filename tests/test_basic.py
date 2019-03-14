@@ -1,5 +1,5 @@
 import pytest
-from zeno.di import Injector, ProvideError, InjectError
+from yapic.di import Injector, ProvideError, InjectError
 
 
 def test_provide_callable():

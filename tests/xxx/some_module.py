@@ -1,5 +1,5 @@
 from typing import TypeVar, Generic
-from zeno.di import Inject
+from yapic.di import Inject
 
 __all__ = ["SomeModule_A", "GenericClass"]
 

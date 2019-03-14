@@ -1,5 +1,5 @@
 import pytest
-from zeno.di import Injector, BoundInjectable, KwOnly
+from yapic.di import Injector, BoundInjectable, KwOnly
 
 
 @pytest.mark.skip("Onyl for __repr__ test")

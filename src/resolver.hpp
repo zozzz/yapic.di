@@ -11,7 +11,7 @@
 		return NULL; \
 	}
 
-namespace ZenoDI {
+namespace YapicDI {
 	namespace _resolver {
 		static inline PyObject* ResolveByKw(Injector* injector, Injector* resolve, PyObject* name, PyObject* type, int recursion) {
 			assert(Injector::CheckExact(injector));
@@ -145,7 +145,7 @@ PyObject* ValueResolver::Resolve(ValueResolver* self, Injector* injector, Inject
 		return self->default_value;
 	}
 
-	return PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_InjectableNotFound, self);
+	return PyErr_Format(Module::State()->ExcInjectError, YapicDI_Err_InjectableNotFound, self);
 }
 
 
@@ -244,7 +244,7 @@ PyObject* ValueResolver::__repr__(ValueResolver* self) {
 	return builder.ToPython();
 }
 
-} // end namespace ZenoDI
+} // end namespace YapicDI
 
 #undef ValueResulver_ReturnIfOk
 

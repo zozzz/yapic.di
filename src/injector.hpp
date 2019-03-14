@@ -3,7 +3,7 @@
 
 #include "./di.hpp"
 
-namespace ZenoDI {
+namespace YapicDI {
 
 Injector* Injector::New(Injector* parent) {
 	PyPtr<Injector> self = Injector::Alloc();
@@ -178,7 +178,7 @@ PyObject* Injector::__mp_getitem__(Injector* self, PyObject* id) {
 		assert(Injectable::CheckExact(injectable));
 		return Injectable::Resolve((Injectable*) injectable, self, 0);
 	} else {
-		PyErr_Format(Module::State()->ExcInjectError, ZenoDI_Err_InjectableNotFound, id);
+		PyErr_Format(Module::State()->ExcInjectError, YapicDI_Err_InjectableNotFound, id);
 		return NULL;
 	}
 }
@@ -214,6 +214,6 @@ PyObject* Injector::descend(Injector* self) {
 	return (PyObject*) Injector::New(self);
 }
 
-} // end namespace ZenoDI
+} // end namespace YapicDI
 
 #endif /* C1001E15_5133_C8FB_12A8_B6171D1397F3 */

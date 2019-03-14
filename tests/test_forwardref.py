@@ -1,5 +1,5 @@
 import xxx
-from zeno.di import Injector, Inject
+from yapic.di import Injector, Inject
 
 
 class A:

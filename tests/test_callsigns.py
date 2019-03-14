@@ -1,7 +1,7 @@
 # flake8: noqa
 # type: ignore
 import pytest
-from zeno.di import Injector
+from yapic.di import Injector
 
 injector = Injector()
 

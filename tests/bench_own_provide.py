@@ -1,5 +1,5 @@
 import threading
-from zeno.di import Injector, SCOPED_SINGLETON, SINGLETON, VALUE
+from yapic.di import Injector, SCOPED_SINGLETON, SINGLETON, VALUE
 
 ITERS = 20000
 

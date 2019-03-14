@@ -1,5 +1,5 @@
 import pytest
-from zeno.di import Injector, VALUE, KwOnly, InjectError, ProvideError, Inject
+from yapic.di import Injector, VALUE, KwOnly, InjectError, ProvideError, Inject
 
 
 def test_injector_value():

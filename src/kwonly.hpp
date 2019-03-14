@@ -3,7 +3,7 @@
 
 #include "./di.hpp"
 
-namespace ZenoDI {
+namespace YapicDI {
 
 KwOnly* KwOnly::New(PyObject* getter) {
 	PyPtr<KwOnly> self = KwOnly::Alloc();
@@ -12,7 +12,7 @@ KwOnly* KwOnly::New(PyObject* getter) {
 	}
 
 	if (PyType_Check(getter) || !PyCallable_Check(getter)) {
-		PyErr_SetString(Module::State()->ExcProvideError, ZenoDI_Err_CallableArgument);
+		PyErr_SetString(Module::State()->ExcProvideError, YapicDI_Err_CallableArgument);
 		return NULL;
 	}
 
@@ -22,13 +22,13 @@ KwOnly* KwOnly::New(PyObject* getter) {
 	}
 
 	if (!self->getter->kwargs) {
-		PyErr_SetString(Module::State()->ExcProvideError, ZenoDI_Err_CallableMustHaveKwOnly);
+		PyErr_SetString(Module::State()->ExcProvideError, YapicDI_Err_CallableMustHaveKwOnly);
 		return NULL;
 	}
 
 	self->name_resolver = Injectable::GetKwArg(self->getter, Module::State()->STR_KWA_NAME);
 	if (self->name_resolver == NULL) {
-		PyErr_SetString(Module::State()->ExcProvideError, ZenoDI_Err_KwOnlyGetterMustHaveNameKw);
+		PyErr_SetString(Module::State()->ExcProvideError, YapicDI_Err_KwOnlyGetterMustHaveNameKw);
 		return NULL;
 	} else {
 		assert(ValueResolver::CheckExact(self->name_resolver));
@@ -76,7 +76,7 @@ PyObject* KwOnly::__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs) 
 	PyObject* getter;
 	if (PyArg_ParseTupleAndKeywords(args, kwargs, "O", kwlist, &getter)) {
 		if (!PyCallable_Check(getter)) {
-			PyErr_SetString(PyExc_TypeError, ZenoDI_Err_CallableArgument);
+			PyErr_SetString(PyExc_TypeError, YapicDI_Err_CallableArgument);
 			return NULL;
 		}
 		return (PyObject*) KwOnly::New(getter);
@@ -99,6 +99,6 @@ PyObject* KwOnly::__repr__(KwOnly* self) {
 }
 
 
-} /* end namespace ZenoDI */
+} /* end namespace YapicDI */
 
 #endif /* C7CADC2B_1133_C962_F786_A62FCBE6BEC8 */

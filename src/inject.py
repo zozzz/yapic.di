@@ -8,7 +8,7 @@ class Inject(Generic[Inj]):
     """Inject token in class level
 
     Example::
-        from zeno.di import Injector, Inject
+        from yapic.di import Injector, Inject
 
         class Database:
             pass

@@ -1,6 +1,6 @@
 import pytest
-from zeno.di import Injector, VALUE, FACTORY, SCOPED_SINGLETON, SINGLETON
-from zeno.di import InjectError
+from yapic.di import Injector, VALUE, FACTORY, SCOPED_SINGLETON, SINGLETON
+from yapic.di import InjectError
 
 
 def test_strategy_value():

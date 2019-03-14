@@ -1,6 +1,6 @@
 import pytest
 from typing import Generic, TypeVar
-from zeno.di import Injector, Inject
+from yapic.di import Injector, Inject
 
 
 def test_generic_attr():

@@ -6,11 +6,11 @@
 #include "./resolver.hpp"
 #include "./kwonly.hpp"
 
-namespace ZenoDI {
+namespace YapicDI {
 
-} // end namespace ZenoDI
+} // end namespace YapicDI
 
 
 PyMODINIT_FUNC PyInit__di(void) {
-    return ZenoDI::Module::Create();
+    return YapicDI::Module::Create();
 }
