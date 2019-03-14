@@ -141,8 +141,10 @@ setup(
     name="yapic.di",
     version=VERSION,
     url="https://github.com/zozzz/yapic.di",
-    author="Zoltan Vetesi",
+    author="Zoltán Vetési",
     author_email="vetesi.zoltan@gmail.com",
+    long_description=(Path(__file__).parent / "README.rst").read_text(encoding="utf-8"),
+    license="BSD",
     packages=["yapic.di"],
     package_dir={"yapic.di": "src"},
     package_data={"yapic.di": ["_di.pyi"]},
@@ -153,4 +155,16 @@ setup(
     cmdclass={
         "test": PyTest,
         "bench": Benchmark
-    })
+    },
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "License :: OSI Approved :: BSD License",
+        "Operating System :: Microsoft :: Windows",
+        "Operating System :: Unix",
+        "Programming Language :: C++",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3 :: Only",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: Utilities",
+        "Typing :: Typed",
+    ])
