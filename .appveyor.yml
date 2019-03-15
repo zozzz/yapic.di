@@ -12,7 +12,7 @@ install:
   - cmd: set PATH=C:\%python%;%PATH%
   - ps: (Get-Content .gitmodules | %{$_ -Replace "git@github.com:", "https://github.com/"}) | Out-File .gitmodules -Encoding ASCII
   - cmd: git submodule update --init --recursive
-  - cmd: python -m pip install --upgrade pip setuptools wheel
+  - cmd: python -m pip install --upgrade pip setuptools wheel pytest
 
 build_script:
   - ps: Remove-Item -LiteralPath pytest.py

@@ -22,7 +22,7 @@ before_install:
   - git submodule update --init --recursive
 
 install:
-  - python3 -m pip install --upgrade pip setuptools wheel
+  - python3 -m pip install --upgrade pip setuptools wheel pytest
 
 script:
   - rm -rf pytest.py
