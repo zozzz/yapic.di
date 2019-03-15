@@ -369,8 +369,8 @@ namespace _injectable {
 		template<typename Trait>
 		struct CallArgs {
 			static FORCEINLINE PyObject* New(Injectable* self, Injector* injector, Injector* owni, int recursion) {
-				register PyObject* resolvers = Trait::Resolvers(self);
-				register PyObject* result;
+				PyObject* resolvers = Trait::Resolvers(self);
+				PyObject* result;
 
 				if (resolvers == NULL) {
 					return Trait::New(0);
@@ -647,7 +647,7 @@ Injectable* Injectable::New(PyObject* value, PyObject* strategy, PyObject* provi
 			}
 		} else {
 			strat = (Injectable::Strategy) PyLong_AS_LONG(strategy);
-			if (strat <= 0 || strat > Injectable::Strategy::MAX) {
+			if (strat <= 0 || strat > YapicDI_Injectable_Strategy_MAX) {
 				PyErr_Format(Module::State()->ExcProvideError, YapicDI_Err_GotInvalidStrategyInt, strategy);
 				return NULL;
 			}

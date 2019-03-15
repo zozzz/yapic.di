@@ -207,7 +207,16 @@ PyObject* Injector::exec(Injector* self, PyObject* args, PyObject* kwargs) {
 // hasznos akkor ha egy sima függvényt akarunk injctálni saját injectableekkel
 PyObject* Injector::injectable(Injector* self, PyObject* args, PyObject* kwargs) {
 	static char *kwlist[] = {"value", "strategy", "provide", NULL};
-	return NULL;
+
+	PyObject* value = NULL;
+	PyObject* strategy = NULL;
+	PyObject* provide = NULL;
+
+	if (PyArg_ParseTupleAndKeywords(args, kwargs, "O|OO:injectable", kwlist, &value, &strategy, &provide)) {
+		return (PyObject*)Injectable::New(value, strategy, provide);
+	} else {
+		return NULL;
+	}
 }
 
 PyObject* Injector::descend(Injector* self) {

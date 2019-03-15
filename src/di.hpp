@@ -83,10 +83,10 @@ public:
 		SINGLETON = 2,
 		SCOPED = 3,
 		CUSTOM = 4,
-		VALUE = 5,
-		MAX = 6
+		VALUE = 5
 		// ALL = FACTORY | VALUE | SINGLETON | SCOPED | CUSTOM
 	};
+	#define YapicDI_Injectable_Strategy_MAX 5
 
 	PyObject* value;
 	PyObject* args; 		// tuple[ValueResolver]

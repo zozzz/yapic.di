@@ -1,5 +1,5 @@
 import pytest
-from yapic.di import Injector, BoundInjectable, KwOnly
+from yapic.di import Injector, BoundInjectable, KwOnly, Injectable
 
 
 @pytest.mark.skip("Onyl for __repr__ test")
@@ -22,11 +22,7 @@ def test_injectable_call1():
         def __init__(self, c: C, d=1, *, kwonly=None):
             pass
 
-    injectable = injector.provide(A, provide=[
-        KwOnly(kw),
-        C,
-        B
-    ])
+    injectable = injector.provide(A, provide=[KwOnly(kw), C, B])
     print(injectable)
     exit(0)
     assert isinstance(injectable(injector), A)
@@ -86,3 +82,13 @@ def test_injectable_bind_err():
         bound(None)
     exc.match("__call__ expected 0 arguments, got 1")
 
+
+def test_injectable_cached():
+    injector = Injector()
+
+    def test_fn():
+        return "NICE"
+
+    injectable = injector.injectable(test_fn)
+    assert isinstance(injectable, Injectable)
+    assert injectable(injector) == "NICE"

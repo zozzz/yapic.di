@@ -39,11 +39,16 @@ if sys.platform == "win32":
 
     extra_compile_args.append("/FAs")
 else:
-    extra_compile_args.append("-std=c++11")
-    extra_compile_args.append("-Wunknown-pragmas")
+    os.environ["CC"] = "gcc"
+    extra_compile_args.append("-std=c++17")
+    extra_compile_args.append("-Wno-unknown-pragmas")
+    extra_compile_args.append("-Wno-write-strings")
 
-    DEVELOP = False
-    if not DEVELOP:
+    DEVELOP = sys.executable.endswith("-dbg")
+    if DEVELOP:
+        define_macros["_DEBUG"] = 1
+        undef_macros.append("NDEBUG")
+    else:
         extra_compile_args.append("-O3")
 
 
