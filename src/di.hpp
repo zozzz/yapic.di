@@ -15,6 +15,10 @@
 #	define FORCEINLINE inline
 #endif
 
+#ifndef YAPIC_DI_VERSION
+#	define YAPIC_DI_VERSION "0.0.0"
+#endif
+
 #include <stdbool.h>
 #include <Python.h>
 #include <yapic/module.hpp>
@@ -198,6 +202,7 @@ public:
 	ModuleVar VALUE;
 	ModuleVar GLOBAL;
 	ModuleVar SINGLETON;
+	ModuleVar __version__;
 
 	ModuleExc ExcBase;
 	ModuleExc ExcProvideError;
@@ -222,6 +227,7 @@ public:
 		state->FACTORY.Value(Injectable::Strategy::FACTORY).Export("FACTORY");
 		state->SINGLETON.Value(Injectable::Strategy::SCOPED).Export("SCOPED_SINGLETON");
 		state->GLOBAL.Value(Injectable::Strategy::SINGLETON).Export("SINGLETON");
+		state->__version__.Value(YAPIC_DI_VERSION).Export("__version__");
 
 		state->ExcBase.Define("InjectorError", PyExc_TypeError);
 		state->ExcProvideError.Define("ProvideError", state->ExcBase);

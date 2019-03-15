@@ -1,5 +1,7 @@
+import re
 import pytest
-from yapic.di import Injector, ProvideError, InjectError
+import yapic.di
+from yapic.di import Injector, ProvideError, InjectError, __version__
 
 
 def test_provide_callable():
@@ -113,3 +115,8 @@ def test_provide_attrs():
 def test_errors():
     assert isinstance(ProvideError(), TypeError)
     assert isinstance(InjectError(), TypeError)
+
+
+def test_version():
+    assert isinstance(__version__, str)
+    assert re.match(r"^\d+\.\d+.\d+$", __version__)

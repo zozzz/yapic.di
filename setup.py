@@ -14,7 +14,8 @@ VERSION = "1.0.4"
 define_macros = {
     "YAPIC_DI_VERSION_MAJOR": VERSION.split(".")[0],
     "YAPIC_DI_VERSION_MINOR": VERSION.split(".")[1],
-    "YAPIC_DI_VERSION_PATCH": VERSION.split(".")[2]
+    "YAPIC_DI_VERSION_PATCH": VERSION.split(".")[2],
+    "YAPIC_DI_VERSION": '"%s"' % VERSION
 }
 undef_macros = []
 extra_compile_args = []  # -flto

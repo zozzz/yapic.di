@@ -1,6 +1,5 @@
 import pytest
-from yapic.di import Injector, VALUE, FACTORY, SCOPED_SINGLETON, SINGLETON
-from yapic.di import InjectError
+from yapic.di import Injector, InjectError, VALUE, FACTORY, SCOPED_SINGLETON, SINGLETON
 
 
 def test_strategy_value():
