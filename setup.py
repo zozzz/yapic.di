@@ -14,8 +14,7 @@ VERSION = "1.0.4"
 define_macros = {
     "YAPIC_DI_VERSION_MAJOR": VERSION.split(".")[0],
     "YAPIC_DI_VERSION_MINOR": VERSION.split(".")[1],
-    "YAPIC_DI_VERSION_PATCH": VERSION.split(".")[2],
-    "YAPIC_DI_VERSION": '"%s"' % VERSION
+    "YAPIC_DI_VERSION_PATCH": VERSION.split(".")[2]
 }
 undef_macros = []
 extra_compile_args = []  # -flto
@@ -40,6 +39,7 @@ if sys.platform == "win32":
 
     extra_compile_args.append("/FAs")
 else:
+    print(os.environ)
     extra_compile_args.append("-std=c++17")
     extra_compile_args.append("-Wno-unknown-pragmas")
     extra_compile_args.append("-Wno-write-strings")

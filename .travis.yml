@@ -25,6 +25,7 @@ install:
 
 script:
   - eval "${COMPILER_ENV}"
+  - printenv
   - python3 setup.py bdist_wheel
   - python3 -m pip install dist/*.whl
   - python3 -m pytest -x -s -v tests

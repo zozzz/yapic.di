@@ -1,6 +1,15 @@
 #ifndef AB77B960_F133_C8FB_1370_B184655AB464
 #define AB77B960_F133_C8FB_1370_B184655AB464
 
+
+#define __YapicDI_STR(__v) #__v
+#define YapicDI_STR(__v) __YapicDI_STR(__v)
+
+#define YAPIC_DI_VERSION \
+	YapicDI_STR(YAPIC_DI_VERSION_MAJOR) "." \
+	YapicDI_STR(YAPIC_DI_VERSION_MINOR) "." \
+	YapicDI_STR(YAPIC_DI_VERSION_PATCH)
+
 // USE ONLY FOR DEBUGGING
 #define YapicDI_REPR(o) (((PyObject*)o) == NULL ? "<NULL>" : ((char*) PyUnicode_DATA(PyObject_Repr(((PyObject*)o)))))
 #define YapicDI_DUMP(o) printf(#o " = %s\n", YapicDI_REPR(o))
@@ -13,10 +22,6 @@
 #	define FORCEINLINE __attribute__((always_inline)) inline
 #else
 #	define FORCEINLINE inline
-#endif
-
-#ifndef YAPIC_DI_VERSION
-#	define YAPIC_DI_VERSION "0.0.0"
 #endif
 
 #include <stdbool.h>
