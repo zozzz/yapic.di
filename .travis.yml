@@ -11,13 +11,12 @@ matrix:
           packages:
             - g++-7
       env:
-        - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
+        - COMPILER_ENV="CC=gcc-7 && CXX=g++-7"
 
 git:
   submodules: false
 
 before_install:
-  - eval "${MATRIX_EVAL}"
   - sed -i 's/git@github.com:/https:\/\/github.com\//' .gitmodules
   - git submodule update --init --recursive
 
@@ -25,6 +24,12 @@ install:
   - python3 -m pip install --upgrade pip setuptools wheel
 
 script:
+  - eval "${COMPILER_ENV}"
   - python3 setup.py bdist_wheel
   - python3 -m pip install dist/*.whl
   - python3 -m pytest -x -s -v tests
+  - >-
+    if [ "${TRAVIS_TAG:-}" != "" ]; then
+      python3 -m pip install twine;
+      python3 -m twine upload --skip-existing dist/*.whl;
+    fi
