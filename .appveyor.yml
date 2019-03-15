@@ -17,7 +17,7 @@ install:
 build_script:
   - ps: Remove-Item -LiteralPath pytest.py
   - cmd: python setup.py bdist_wheel
-  - ps: Invoke-Expression "python -m pip install $(Get-Childitem –Path dist -Include *.whl -File -Recurse)"
+  - ps: Invoke-Expression "python -m pip install --upgrade $(Get-Childitem –Path dist -Include *.whl -File -Recurse)"
   - cmd: python -m pytest -x -s -v tests
   - ps: >-
       if ($env:APPVEYOR_REPO_TAG -eq "true") {
