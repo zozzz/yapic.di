@@ -9,7 +9,7 @@ matrix:
           sources:
             - ubuntu-toolchain-r-test
           packages:
-            - g++-7
+            - gcc-7
 
 git:
   submodules: false
