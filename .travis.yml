@@ -27,7 +27,8 @@ install:
 script:
   - rm -rf pytest.py
   - python3 setup.py bdist_wheel
-  - sudo python3 -m pip install --upgrade dist/*.whl
+  # - sudo python3 -m pip install --upgrade dist/*.whl
+  - sudo pip3 install --upgrade dist/*.whl
   - python3 -m pytest -x -s -v tests
   - >-
     if [ "${TRAVIS_TAG:-}" != "" ]; then
