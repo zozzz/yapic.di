@@ -11,7 +11,8 @@ matrix:
           packages:
             - g++-7
       env:
-        - COMPILER_ENV="CC=gcc-7 && CXX=g++-7"
+        - CC="gcc-7"
+        - CXX="g++-7"
 
 git:
   submodules: false
@@ -24,7 +25,6 @@ install:
   - python3 -m pip install --upgrade pip setuptools wheel
 
 script:
-  - eval "${COMPILER_ENV}"
   - printenv
   - python3 setup.py bdist_wheel
   - python3 -m pip install dist/*.whl
