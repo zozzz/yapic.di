@@ -1,30 +1,3 @@
-# image: Visual Studio 2017
-
-# environment:
-#   CIBW_BUILD: cp37-*
-#   CIBW_TEST_REQUIRES: pytest
-#   CIBW_TEST_COMMAND: python -m pytest -x -s -v C:\projects\yapic-di\tests
-
-# install:
-#   - ps: (Get-Content .gitmodules | %{$_ -Replace "git@github.com:", "https://github.com/"}) | Out-File .gitmodules -Encoding ASCII
-#   - cmd: git submodule update --init --recursive
-#   - set PATH=C:\Python37;%PATH%
-#   - cmd: python -m pip install --upgrade pip
-#   - cmd: python -m pip install --upgrade cibuildwheel
-#   - cmd: touch .cibuildwheel
-
-# platform: [x64]
-
-# build_script:
-#   - cmd: python -m cibuildwheel --output-dir wheelhouse
-#   - ps: echo $env:APPVEYOR_REPO_TAG
-#   - ps: echo $env:APPVEYOR_REPO_TAG_NAME
-#   - ps: >-
-#       if ($env:APPVEYOR_REPO_TAG -eq "true") {
-#         Invoke-Expression "python -m pip install twine"
-#         Invoke-Expression "python -m twine upload --skip-existing wheelhouse/*.whl"
-#       }
-
 image: Visual Studio 2017
 
 environment:
@@ -45,3 +18,8 @@ build_script:
   - cmd: python setup.py bdist_wheel
   - ps: Invoke-Expression "python -m pip install $(Get-Childitem –Path dist -Include *.whl -File -Recurse)"
   - cmd: python -m pytest -x -s -v tests
+  - ps: >-
+      if ($env:APPVEYOR_REPO_TAG -eq "true") {
+        Invoke-Expression "python -m pip install twine"
+        Invoke-Expression "python -m twine upload --skip-existing dist/*.whl"
+      }
