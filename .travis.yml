@@ -25,7 +25,7 @@ install:
   - python3 -m pip install --upgrade pip setuptools wheel
 
 script:
-  - printenv
+  - rm -rf pytest.py
   - python3 setup.py bdist_wheel
   - python3 -m pip install dist/*.whl
   - python3 -m pytest -x -s -v tests
