@@ -43,3 +43,5 @@ install:
 
 build_script:
   - cmd: python setup.py bdist_wheel
+  - ps: Invoke-Expression "python -m pip install $(Get-Childitem –Path dist -Include *.whl -File -Recurse)"
+  - cmd: python -m pytest -x -s -v tests
