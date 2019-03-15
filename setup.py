@@ -40,7 +40,6 @@ if sys.platform == "win32":
 
     extra_compile_args.append("/FAs")
 else:
-    os.environ["CC"] = "gcc"
     extra_compile_args.append("-std=c++17")
     extra_compile_args.append("-Wno-unknown-pragmas")
     extra_compile_args.append("-Wno-write-strings")
