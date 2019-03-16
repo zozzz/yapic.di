@@ -92,11 +92,11 @@ workflows:
   x86:
     jobs:
       - build-x86
-      - test-x86: { requires: build-x86 }
-      - release-x86: { requires: test-x86 }
+      - test-x86: { requires: [build-x86] }
+      - release-x86: { requires: [test-x86] }
 
   x64:
     jobs:
       - build-x64
-      - test-x64: { requires: build-x64 }
-      - release-x64: { requires: test-x64 }
+      - test-x64: { requires: [build-x64] }
+      - release-x64: { requires: [test-x64] }
