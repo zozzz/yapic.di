@@ -1,20 +1,20 @@
 version: 2
 
-_docker-x86: &docker-x86
+_docker-x86-py37: &docker-x86-py37
   docker:
     - image: quay.io/pypa/manylinux1_i686
       environment:
         PYBIN: /opt/python/cp37-cp37m/bin/python3
   working_directory: ~/repo
 
-_docker-x64: &docker-x64
+_docker-x64-py37: &docker-x64-py37
   docker:
     - image: quay.io/pypa/manylinux1_x86_64
       environment:
         PYBIN: /opt/python/cp37-cp37m/bin/python3
   working_directory: ~/repo
 
-_build-job: &build-job
+_job: &job
   steps:
     - checkout
 
@@ -27,29 +27,13 @@ _build-job: &build-job
     - run:
         name: install dependencies
         command: |
-          "${PYBIN}" -m pip install --upgrade pip setuptools pytest auditwheel
+          "${PYBIN}" -m pip install --upgrade pip setuptools pytest auditwheel twine
 
     - run:
         name: build
         command: |
           "${PYBIN}" setup.py bdist_wheel
           "${PYBIN}" -m auditwheel repair dist/*.whl
-
-    - persist_to_workspace:
-        root: wheelhouse
-        paths: "*.whl"
-
-_test-job: &test-job
-  steps:
-    - checkout
-
-    - attach_workspace:
-        at: wheelhouse
-
-    - run:
-        name: install dependencies
-        command: |
-          "${PYBIN}" -m pip install --upgrade pip setuptools pytest
 
     - run:
         name: test
@@ -58,62 +42,23 @@ _test-job: &test-job
           "${PYBIN}" -m pip install --upgrade wheelhouse/*.whl
           "${PYBIN}" -m pytest -x -s -v tests
 
-_release-job: &release-job
-  steps:
-    - attach_workspace:
-        at: wheelhouse
-
-    - run:
-        name: install dependencies
-        command: |
-          "${PYBIN}" -m pip install --upgrade pip setuptools twine
-
     - run:
         name: release
         command: |
-          "${PYBIN}" -m twine upload --skip-existing wheelhouse/*.whl
+          if [ "${CIRCLE_TAG:-}" != "" ]; then
+            "${PYBIN}" -m twine upload --skip-existing wheelhouse/*.whl
+          fi
 
 jobs:
-  build-x64:
-    <<: *docker-x64
-    <<: *build-job
+  x86-py37:
+    <<: *docker-x86-py37
+    <<: *job
 
-  test-x64:
-    <<: *docker-x64
-    <<: *test-job
-
-  release-x64:
-    <<: *docker-x64
-    <<: *release-job
-
-  build-x86:
-    <<: *docker-x86
-    <<: *build-job
-
-  test-x86:
-    <<: *docker-x86
-    <<: *test-job
-
-  release-x86:
-    <<: *docker-x86
-    <<: *release-job
+  x64-py37:
+    <<: *docker-x64-py37
+    <<: *job
 
 workflows:
   version: 2
-  x86:
-    jobs:
-      - build-x86
-      - test-x86: { requires: [build-x86] }
-      - release-x86:
-          requires: [test-x86]
-          filters:
-            tags: { only: /^\d+\.\d+\.\d+$/ }
-
-  x64:
-    jobs:
-      - build-x64
-      - test-x64: { requires: [build-x64] }
-      - release-x64:
-          requires: [test-x64]
-          filters:
-            tags: { only: /^\d+\.\d+\.\d+$/ }
+  x86-py37: { jobs: [x86-py37] }
+  x64-py37: { jobs: [x64-py37] }
