@@ -63,7 +63,7 @@ _vars:
             "${PYBIN}" -m twine upload --skip-existing wheelhouse/*.whl
 
   - &release-filters
-    branches: { ignore: /.*/ }
+    branches: { only: release }
     tags: { only: /^\d+\.\d+\.\d+$/ }
 
 jobs:
