@@ -4,6 +4,12 @@ jobs:
   build:
     docker:
       - image: quay.io/pypa/manylinux1_x86_64
+        environment:
+          PYBIN: /opt/python/cp37-cp37m/bin/python3
+
+      - image: quay.io/pypa/manylinux1_i686
+        environment:
+          PYBIN: /opt/python/cp37-cp37m/bin/python3
 
     working_directory: ~/repo
 
@@ -17,24 +23,27 @@ jobs:
             git submodule update --init --recursive
 
       - run:
-          name: init env
-          command: |
-            echo 'export PATH=/opt/python/cp37-cp37m/bin/:$PATH' >> $BASH_ENV
-
-      - run:
           name: install dependencies
           command: |
-            python3 -m pip install --upgrade pip setuptools pytest auditwheel
+            "${PYBIN}" -m pip install --upgrade pip setuptools pytest auditwheel
 
       - run:
           name: build
           command: |
-            python3 setup.py bdist_wheel
-            python3 -m auditwheel repair dist/*.whl
+            "${PYBIN}" setup.py bdist_wheel
+            "${PYBIN}" -m auditwheel repair dist/*.whl
 
       - run:
           name: test
           command: |
             rm -rf pytest.py
-            python3 -m pip install --upgrade wheelhouse/*.whl
-            python3 -m pytest -x -s -v tests
+            "${PYBIN}" -m pip install --upgrade wheelhouse/*.whl
+            "${PYBIN}" -m pytest -x -s -v tests
+
+      - run:
+          name: release
+          filters:
+            branch: { ignore: /.*/ }
+            tags: { only: /^\d+\.\d+\.\d+$/ }
+          command: |
+            echo "DO RELEASE"
