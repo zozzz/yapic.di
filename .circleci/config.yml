@@ -47,6 +47,11 @@ _test-job: &test-job
         at: wheelhouse
 
     - run:
+        name: install dependencies
+        command: |
+          "${PYBIN}" -m pip install --upgrade pip setuptools pytest
+
+    - run:
         name: test
         command: |
           rm -rf pytest.py
@@ -57,7 +62,12 @@ _release-job: &release-job
   filters:
     branch: { ignore: /.*/ }
     tags: { only: /^\d+\.\d+\.\d+$/ }
+
   steps:
+    - run:
+        name: install dependencies
+        command: |
+          "${PYBIN}" -m pip install --upgrade pip setuptools twine
     - run:
         name: release
 
