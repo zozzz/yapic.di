@@ -40,7 +40,7 @@ namespace _injectable {
 		static inline PyObject* GetInjectableAttr(PyObject* inject) {
 			if (Module::State()->Typing.IsForwardDecl(inject)) {
 				// Yapic::ForwardDecl* forward = reinterpret_cast<Yapic::ForwardDecl*>(inject);
-				PyPtr<> unpacked = Module::State()->Typing.UnpackForwardDecl(inject);
+				PyPtr<PyTupleObject> unpacked = Module::State()->Typing.UnpackForwardDecl(inject);
 				if (unpacked) {
 					assert(PyTuple_CheckExact(unpacked));
 					if (Module::State()->Inject.Eq(PyTuple_GET_ITEM(unpacked, 0))) {
@@ -57,7 +57,7 @@ namespace _injectable {
 					return NULL;
 				}
 			} else if (IsInjectable(inject)) {
-				PyPtr<> args = PyObject_GetAttr(inject, Module::State()->STR_ARGS);
+				PyPtr<PyTupleObject> args = PyObject_GetAttr(inject, Module::State()->STR_ARGS);
 				if (!args) {
 					return NULL;
 				}
@@ -76,7 +76,7 @@ namespace _injectable {
 		template<bool KwOnly>
 		static PyObject* Arguments(PyObject* hints) {
 			Py_ssize_t l = PyTuple_GET_SIZE(hints);
-			PyPtr<> args = PyTuple_New(l);
+			PyPtr<PyTupleObject> args = PyTuple_New(l);
 			if (!args) {
 				return NULL;
 			}
@@ -111,7 +111,7 @@ namespace _injectable {
 				PyTuple_SET_ITEM(args, i, resolver);
 			}
 
-			return args.Steal();
+			return (PyObject*)args.Steal();
 		}
 
 		static bool Callable(Injectable* injectable, PyObject* hints) {
@@ -135,7 +135,7 @@ namespace _injectable {
 		static bool Attribute(Injectable* injectable, PyObject* hints) {
 			Py_ssize_t l = PyDict_Size(hints);
 			Py_ssize_t attrsSize = 0;
-			PyPtr<> attrs = PyTuple_New(l);
+			PyPtr<PyTupleObject> attrs = PyTuple_New(l);
 			if (!attrs) {
 				return false;
 			}
@@ -163,7 +163,7 @@ namespace _injectable {
 				}
 			}
 
-			injectable->attributes = attrs.Steal();
+			injectable->attributes = (PyObject*)attrs.Steal();
 			if (_PyTuple_Resize(&injectable->attributes, attrsSize) == -1) {
 				return false;
 			} else {
@@ -545,7 +545,7 @@ Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyOb
 
 	if (strategy != Injectable::Strategy::VALUE) {
 		if (PyType_Check(value) || Module::State()->Typing.IsGenericType(value)) {
-			PyPtr<> hints = Module::State()->Typing.TypeHints(value);
+			PyPtr<PyTupleObject> hints = Module::State()->Typing.TypeHints(value);
 			if (!hints) {
 				return NULL;
 			}
