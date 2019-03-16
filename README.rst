@@ -21,6 +21,14 @@ Dependency Injector
 Fast `Dependency Injection <https://en.wikipedia.org/wiki/Dependency_injection>`_
 for Python, which is highly uses typing features.
 
+Requirements
+------------
+
+- Only works with Python 3.7 or greater
+- c++ 11 comaptible compiler. *(only if u want to build from source)*
+
+  Wheels provided for windows x86/x64 and linux x86/x64
+
 Usage
 ~~~~~
 
