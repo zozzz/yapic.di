@@ -1,15 +1,15 @@
 Dependency Injector
 ===================
 
-.. image:: https://img.shields.io/appveyor/ci/zozzz/yapic-di/master.svg?label=windows&style=flat-square
+.. image:: https://img.shields.io/appveyor/ci/zozzz/yapic-di/release.svg?label=windows&style=flat-square
       :alt: AppVeyor
       :target: https://ci.appveyor.com/project/zozzz/yapic-di
 
-.. image:: https://img.shields.io/circleci/project/github/zozzz/yapic.di/master.svg?label=linux&style=flat-square
+.. image:: https://img.shields.io/circleci/project/github/zozzz/yapic.di/release.svg?label=linux&style=flat-square
       :alt: CircleCI
       :target: https://circleci.com/gh/zozzz/yapic.di
 
-.. image:: https://img.shields.io/travis/com/zozzz/yapic.di/master.svg?label=sdist&style=flat-square
+.. image:: https://img.shields.io/travis/com/zozzz/yapic.di/release.svg?label=sdist&style=flat-square
       :alt: Travis
       :target: https://travis-ci.com/zozzz/yapic.di
 
