@@ -1,19 +1,18 @@
 version: 2
 
-executors:
-  py37-x64:
-    docker:
-      - image: quay.io/pypa/manylinux1_x86_64
-        environment:
-          PYBIN: /opt/python/cp37-cp37m/bin/python3
-    working_directory: ~/repo
+_docker-x86: &docker-x86
+  docker:
+    - image: quay.io/pypa/manylinux1_i686
+      environment:
+        PYBIN: /opt/python/cp37-cp37m/bin/python3
+  working_directory: ~/repo
 
-  py37-x86:
-    docker:
-      - image: quay.io/pypa/manylinux1_i686
-        environment:
-          PYBIN: /opt/python/cp37-cp37m/bin/python3
-    working_directory: ~/repo
+_docker-x64: &docker-x64
+  docker:
+    - image: quay.io/pypa/manylinux1_x86_64
+      environment:
+        PYBIN: /opt/python/cp37-cp37m/bin/python3
+  working_directory: ~/repo
 
 _build-job: &build-job
   steps:
@@ -64,28 +63,28 @@ _release-job: &release-job
 
 jobs:
   build-x64:
+    <<: *docker-x64
     <<: *build-job
-    executor: py37-x64
 
   test-x64:
+    <<: *docker-x64
     <<: *test-job
-    executor: py37-x64
 
   release-x64:
+    <<: *docker-x64
     <<: *release-job
-    executor: py37-x64
 
   build-x86:
+    <<: *docker-x86
     <<: *build-job
-    executor: py37-x86
 
   test-x86:
+    <<: *docker-x86
     <<: *test-job
-    executor: py37-x86
 
   release-x86:
+    <<: *docker-x86
     <<: *release-job
-    executor: py37-x86
 
 workflows:
   version: 2
