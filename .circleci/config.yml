@@ -51,3 +51,10 @@ jobs:
       #       tags: { only: /^\d+\.\d+\.\d+$/ }
       #     command: |
       #       echo "DO RELEASE"
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build-x64
+      - build-x86
