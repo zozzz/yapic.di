@@ -122,3 +122,5 @@ Release Process
 - ``git merge master``
 - ``git tag -a VERSION -m "chore(bump): VERSION"``
 - ``git push && git push --tags``
+- ``git checkout master``
+- ``git merge release``
