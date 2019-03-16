@@ -1,10 +1,21 @@
 Dependency Injector
 ===================
 
-.. image:: https://img.shields.io/appveyor/ci/zozzz/yapic-di/master.svg?label=windows&style=flat-square   :alt: AppVeyor
-.. image:: https://img.shields.io/circleci/project/github/zozzz/yapic.di/master.svg?label=linux&style=flat-square   :alt: CircleCI
-.. image:: https://img.shields.io/travis/com/zozzz/yapic.di/master.svg?label=sdist&style=flat-square   :alt: Travis
-.. image:: https://img.shields.io/pypi/dm/yapic.di.svg?style=flat-square   :alt: PyPI - Downloads
+.. image:: https://img.shields.io/appveyor/ci/zozzz/yapic-di/master.svg?label=windows&style=flat-square
+      :alt: AppVeyor
+      :target: https://ci.appveyor.com/project/zozzz/yapic-di
+
+.. image:: https://img.shields.io/circleci/project/github/zozzz/yapic.di/master.svg?label=linux&style=flat-square
+      :alt: CircleCI
+      :target: https://circleci.com/gh/zozzz/yapic.di
+
+.. image:: https://img.shields.io/travis/com/zozzz/yapic.di/master.svg?label=sdist&style=flat-square
+      :alt: Travis
+      :target: https://travis-ci.com/zozzz/yapic.di
+
+.. image:: https://img.shields.io/pypi/dm/yapic.di.svg?style=flat-square
+      :alt: PyPI - Downloads
+      :target: https://pypi.org/project/yapic.di/
 
 
 Fast `Dependency Injection <https://en.wikipedia.org/wiki/Dependency_injection>`_
