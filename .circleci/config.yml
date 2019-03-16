@@ -44,9 +44,9 @@ _job: &job
 
     - run:
         name: release
-        command: |
+        command: >-
           if [ "${CIRCLE_TAG:-}" != "" ]; then
-            "${PYBIN}" -m twine upload --skip-existing wheelhouse/*.whl
+            "${PYBIN}" -m twine upload --skip-existing wheelhouse/*.whl;
           fi
 
 jobs:
