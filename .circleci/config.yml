@@ -1,8 +1,21 @@
 version: 2
 
-_job: &job
-  working_directory: ~/repo
+executors:
+  py37-x64:
+    docker:
+      - image: quay.io/pypa/manylinux1_x86_64
+        environment:
+          PYBIN: /opt/python/cp37-cp37m/bin/python3
+    working_directory: ~/repo
 
+  py37-x86:
+    docker:
+      - image: quay.io/pypa/manylinux1_i686
+        environment:
+          PYBIN: /opt/python/cp37-cp37m/bin/python3
+    working_directory: ~/repo
+
+_build-job: &build-job
   steps:
     - checkout
 
@@ -23,6 +36,17 @@ _job: &job
           "${PYBIN}" setup.py bdist_wheel
           "${PYBIN}" -m auditwheel repair dist/*.whl
 
+    - persist_to_workspace:
+        root: wheelhouse
+        paths: "*.whl"
+
+_test-job: &test-job
+  steps:
+    - checkout
+
+    - attach_workspace:
+        at: wheelhouse
+
     - run:
         name: test
         command: |
@@ -30,31 +54,49 @@ _job: &job
           "${PYBIN}" -m pip install --upgrade wheelhouse/*.whl
           "${PYBIN}" -m pytest -x -s -v tests
 
+_release-job: &release-job
+  filters:
+    branch: { ignore: /.*/ }
+    tags: { only: /^\d+\.\d+\.\d+$/ }
+  steps:
+    - run:
+        name: release
+
 jobs:
   build-x64:
-    <<: *job
-    docker:
-      - image: quay.io/pypa/manylinux1_x86_64
-        environment:
-          PYBIN: /opt/python/cp37-cp37m/bin/python3
+    <<: *build-job
+    executor: py37-x64
+
+  test-x64:
+    <<: *test-job
+    executor: py37-x64
+
+  release-x64:
+    <<: *release-job
+    executor: py37-x64
 
   build-x86:
-    <<: *job
-    docker:
-      - image: quay.io/pypa/manylinux1_i686
-        environment:
-          PYBIN: /opt/python/cp37-cp37m/bin/python3
-      # - run:
-      #     name: release
-      #     filters:
-      #       branch: { ignore: /.*/ }
-      #       tags: { only: /^\d+\.\d+\.\d+$/ }
-      #     command: |
-      #       echo "DO RELEASE"
+    <<: *build-job
+    executor: py37-x86
+
+  test-x86:
+    <<: *test-job
+    executor: py37-x86
+
+  release-x86:
+    <<: *release-job
+    executor: py37-x86
 
 workflows:
   version: 2
-  build:
+  x86:
+    jobs:
+      - build-x86
+      - test-x86: { requires: build-x86 }
+      - release-x86: { requires: test-x86 }
+
+  x64:
     jobs:
       - build-x64
-      - build-x86
+      - test-x64: { requires: build-x64 }
+      - release-x64: { requires: test-x64 }
