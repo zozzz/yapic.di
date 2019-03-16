@@ -1,6 +1,12 @@
 Dependency Injector
 ===================
 
+.. image:: https://img.shields.io/appveyor/ci/zozzz/yapic-di/master.svg?label=windows&style=flat-square   :alt: AppVeyor
+.. image:: https://img.shields.io/circleci/project/github/zozzz/yapic.di/master.svg?label=linux&style=flat-square   :alt: CircleCI
+.. image:: https://img.shields.io/travis/com/zozzz/yapic.di/master.svg?label=sdist&style=flat-square   :alt: Travis
+.. image:: https://img.shields.io/pypi/dm/yapic.di.svg?style=flat-square   :alt: PyPI - Downloads
+
+
 Fast `Dependency Injection <https://en.wikipedia.org/wiki/Dependency_injection>`_
 for Python, which is highly uses typing features.
 
@@ -61,7 +67,30 @@ Usage
    injector.exec(drive_diesel)
 
 
-For more info see `Python Stub file <src/_di.pyi>`_
+Keyword Only Arguments
+----------------------
+
+.. code-block:: python
+
+   class Config(dict):
+      def __init__(self):
+         super().__init__(some_key=42)
+
+   def get_kwarg(config: Config, *, name, type):
+         if name == "some_key":
+            return config[name]
+         else:
+            raise NoKwOnly()
+
+    def fn(*, some_key: str):
+        assert some_key == 42
+
+   injector = Injector()
+   injector.provide(Config)
+   injector.provide(fn, provide=[KwOnly(get_kwarg)])
+
+
+For more info see `Python Stub file <src/_di.pyi>`_ or `test files <tests>`_
 
 
 Release Process
