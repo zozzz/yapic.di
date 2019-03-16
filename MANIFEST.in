@@ -1,3 +1,3 @@
 include LICENSE
-include src/*.hpp
-recursive-include libs/yapic.core/src/yapic/include *.hpp
+recursive-include src *.hpp
+recursive-include libs/yapic.core/src/yapic/core/include *.hpp

@@ -59,19 +59,19 @@ _test-job: &test-job
           "${PYBIN}" -m pytest -x -s -v tests
 
 _release-job: &release-job
-  filters:
-    branch: { ignore: /.*/ }
-    tags: { only: /^\d+\.\d+\.\d+$/ }
-
   steps:
+    - attach_workspace:
+        at: wheelhouse
+
     - run:
         name: install dependencies
         command: |
           "${PYBIN}" -m pip install --upgrade pip setuptools twine
+
     - run:
         name: release
         command: |
-          "${PYBIN}" -m twine upload --skip-existing wheelhouse/*.whl;
+          "${PYBIN}" -m twine upload --skip-existing wheelhouse/*.whl
 
 jobs:
   build-x64:
@@ -104,10 +104,16 @@ workflows:
     jobs:
       - build-x86
       - test-x86: { requires: [build-x86] }
-      - release-x86: { requires: [test-x86] }
+      - release-x86:
+          requires: [test-x86]
+          filters:
+            tags: { only: /^\d+\.\d+\.\d+$/ }
 
   x64:
     jobs:
       - build-x64
       - test-x64: { requires: [build-x64] }
-      - release-x64: { requires: [test-x64] }
+      - release-x64:
+          requires: [test-x64]
+          filters:
+            tags: { only: /^\d+\.\d+\.\d+$/ }
