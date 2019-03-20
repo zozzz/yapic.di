@@ -60,6 +60,7 @@ public:
 	static PyObject* __new__(PyTypeObject *type, PyObject *args, PyObject *kwargs);
 	static void __dealloc__(Injector* self);
 	static PyObject* __mp_getitem__(Injector* self, PyObject* key);
+	static int __mp_setitem__(Injector* self, PyObject* key, PyObject* value);
 	static PyObject* provide(Injector* self, PyObject* args, PyObject* kwargs);
 	static PyObject* get(Injector* self, PyObject* id);
 	static PyObject* exec(Injector* self, PyObject* args, PyObject* kwargs);

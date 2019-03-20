@@ -332,3 +332,24 @@ def test_injector_recursion():
 
     with pytest.raises(RecursionError):
         assert injector.exec(x) == "OK"
+
+
+def test_injector_setitem():
+    class A:
+        pass
+
+    injector = Injector()
+    injector[A] = A()
+
+    def fn(a: A):
+        assert isinstance(a, A)
+        return "OK"
+
+    assert injector.exec(fn) == "OK"
+
+    del injector[A]
+
+    with pytest.raises(InjectError) as exc:
+        injector.exec(fn) == "OK"
+
+    exc.match("Not found suitable value for")

@@ -112,3 +112,5 @@ playground
 # pytest
 .pytest_cache
 .benchmarks
+
+.vscode/ipch

@@ -86,6 +86,16 @@ PyObject* Injector::Provide(Injector* self, PyObject* id) {
 }
 
 
+static inline bool Injector_Set(Injector* self, PyObject* id, PyObject* injectable) {
+	Py_hash_t hash = PyObject_Hash(id);
+	if (hash == -1) {
+		return false;
+	}
+	reinterpret_cast<Injectable*>(injectable)->hash = hash;
+	return _PyDict_SetItem_KnownHash(self->injectables, id, injectable, hash) == 0;
+}
+
+
 PyObject* Injector::Provide(Injector* self, PyObject* id, PyObject* value, PyObject* strategy, PyObject* provide) {
 	if (KwOnly::CheckExact(id)) {
 		if (!self->kwargs) {
@@ -105,22 +115,17 @@ PyObject* Injector::Provide(Injector* self, PyObject* id, PyObject* value, PyObj
 		value = id;
 	}
 
-	value = (PyObject*) Injectable::New(value, strategy, provide);
+	value = reinterpret_cast<PyObject*>(Injectable::New(value, strategy, provide));
 	if (value == NULL) {
 		return NULL;
 	}
-	Py_hash_t hash = PyObject_Hash(id);
-	if (hash == -1) {
-		return NULL;
-	}
-	((Injectable*) value)->hash = hash;
 
-	if (_PyDict_SetItem_KnownHash(self->injectables, id, value, hash) == -1) {
+	if (Injector_Set(self, id, value)) {
+		return value;
+	} else {
 		Py_DECREF(value);
 		return NULL;
 	}
-
-	return value;
 }
 
 void Injector::SetParent(Injector* self, Injector* parent) {
@@ -180,6 +185,21 @@ PyObject* Injector::__mp_getitem__(Injector* self, PyObject* id) {
 	} else {
 		PyErr_Format(Module::State()->ExcInjectError, YapicDI_Err_InjectableNotFound, id);
 		return NULL;
+	}
+}
+
+
+int Injector::__mp_setitem__(Injector* self, PyObject* id, PyObject* value) {
+	// delete
+	if (value == NULL) {
+		return PyDict_DelItem(self->injectables, id);
+	} else {
+		PyPtr<> injectable = reinterpret_cast<PyObject*>(Injectable::New(value, Injectable::Strategy::VALUE, NULL));
+		if (injectable && Injector_Set(self, id, injectable)) {
+			return 0;
+		} else {
+			return -1;
+		}
 	}
 }
 
