@@ -190,6 +190,20 @@ public:
 };
 
 
+class Token: public Yapic::Type<Token, Yapic::Object> {
+public:
+	PyObject* name;
+	Py_hash_t hash;
+
+	static Token* New(PyObject* name);
+	static PyObject* __new__(PyTypeObject *type, PyObject *args, PyObject *kwargs);
+	static Py_hash_t __hash__(Token* self);
+	static PyObject* __cmp__(Token* self, PyObject* other, int op);
+	static void __dealloc__(Token* self);
+	static PyObject* __repr__(Token* self);
+};
+
+
 class Module: public Yapic::Module<Module> {
 public:
 	using ModuleVar = Yapic::ModuleVar<Module>;
@@ -250,7 +264,8 @@ public:
 			!Injectable::Register(module, __name__) ||
 			!BoundInjectable::Register(module, __name__) ||
 			!ValueResolver::Register(module, __name__) ||
-			!KwOnly::Register(module, __name__)) {
+			!KwOnly::Register(module, __name__) ||
+			!Token::Register(module, __name__)) {
 			return -1;
 		}
 

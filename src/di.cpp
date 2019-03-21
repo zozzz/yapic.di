@@ -5,6 +5,7 @@
 #include "./injectable.hpp"
 #include "./resolver.hpp"
 #include "./kwonly.hpp"
+#include "./token.hpp"
 
 namespace YapicDI {
 

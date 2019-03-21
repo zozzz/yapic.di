@@ -1,5 +1,6 @@
+import sys
 import pytest
-from yapic.di import Injector, VALUE, KwOnly, InjectError, ProvideError, Inject
+from yapic.di import Injector, VALUE, KwOnly, InjectError, ProvideError, Inject, Token
 
 
 def test_injector_value():
@@ -353,3 +354,25 @@ def test_injector_setitem():
         injector.exec(fn) == "OK"
 
     exc.match("Not found suitable value for")
+
+
+def test_token():
+    TOKEN = Token("__token__")
+
+    assert repr(TOKEN) == "<Token __token__>"
+
+    class A:
+        pass
+
+    def fn(a: TOKEN):
+        assert isinstance(a, A)
+        return "OK"
+
+    injector = Injector()
+    injector.provide(TOKEN, A)
+
+    assert injector.exec(fn) == "OK"
+
+    with pytest.raises(TypeError) as exc:
+        Token(None)
+    exc.match("argument 1 must be str")
