@@ -190,17 +190,21 @@ public:
 };
 
 
-class Token: public Yapic::Type<Token, Yapic::Object> {
-public:
-	PyObject* name;
-	Py_hash_t hash;
+// class Token: public Yapic::Type<Token, Yapic::TypeObject> {
+// public:
+// 	PyObject* name;
+// 	Py_hash_t hash;
 
-	static Token* New(PyObject* name);
-	static PyObject* __new__(PyTypeObject *type, PyObject *args, PyObject *kwargs);
-	static Py_hash_t __hash__(Token* self);
-	static PyObject* __cmp__(Token* self, PyObject* other, int op);
-	static void __dealloc__(Token* self);
-	static PyObject* __repr__(Token* self);
+// 	static Token* New(PyObject* name);
+// 	static PyObject* __new__(PyTypeObject *type, PyObject *args, PyObject *kwargs);
+// 	static Py_hash_t __hash__(Token* self);
+// 	static PyObject* __cmp__(Token* self, PyObject* other, int op);
+// 	static void __dealloc__(Token* self);
+// 	static PyObject* __repr__(Token* self);
+// };
+
+namespace Token {
+	PyTypeObject* New(PyObject* id);
 };
 
 
@@ -223,6 +227,7 @@ public:
 	ModuleVar GLOBAL;
 	ModuleVar SINGLETON;
 	ModuleVar __version__;
+	ModuleVar str_name;
 
 	ModuleExc ExcBase;
 	ModuleExc ExcProvideError;
@@ -247,6 +252,7 @@ public:
 		state->FACTORY.Value(Injectable::Strategy::FACTORY).Export("FACTORY");
 		state->SINGLETON.Value(Injectable::Strategy::SCOPED).Export("SCOPED_SINGLETON");
 		state->GLOBAL.Value(Injectable::Strategy::SINGLETON).Export("SINGLETON");
+		state->str_name.Value("__name__");
 		state->__version__.Value(YAPIC_DI_VERSION).Export("__version__");
 
 		state->ExcBase.Define("InjectorError", PyExc_TypeError);
@@ -264,8 +270,7 @@ public:
 			!Injectable::Register(module, __name__) ||
 			!BoundInjectable::Register(module, __name__) ||
 			!ValueResolver::Register(module, __name__) ||
-			!KwOnly::Register(module, __name__) ||
-			!Token::Register(module, __name__)) {
+			!KwOnly::Register(module, __name__)) {
 			return -1;
 		}
 
@@ -282,6 +287,15 @@ public:
 		delete state->rlock_singletons;
 		return Super::__clear__(module);
 	}
+
+	static inline PyObject* Token(PyObject* module, PyObject* id) {
+		return (PyObject*) Token::New(id);
+	}
+
+
+	Yapic_METHODS_BEGIN
+		Yapic_Method(Token, METH_O, NULL)
+	Yapic_METHODS_END
 };
 
 

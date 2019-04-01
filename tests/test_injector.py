@@ -359,7 +359,7 @@ def test_injector_setitem():
 def test_token():
     TOKEN = Token("__token__")
 
-    assert repr(TOKEN) == "<Token __token__>"
+    assert repr(TOKEN) == "<class 'test_injector.__token__'>"
 
     class A:
         pass
@@ -376,3 +376,23 @@ def test_token():
     with pytest.raises(TypeError) as exc:
         Token(None)
     exc.match("argument 1 must be str")
+
+
+def test_token_attr():
+    TOKEN = Token("__token__")
+
+    assert repr(TOKEN) == "<class 'test_injector.__token__'>"
+
+    class A:
+        pass
+
+    class B:
+        a: Inject[TOKEN]
+
+    injector = Injector()
+    injector.provide(TOKEN, A)
+    injector.provide(B)
+
+    b = injector[B]
+    assert isinstance(b, B)
+    assert isinstance(b.a, A)
