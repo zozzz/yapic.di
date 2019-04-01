@@ -109,7 +109,7 @@ Keyword Only Arguments
    injector.provide(fn, provide=[KwOnly(get_kwarg)])
 
 
-For more info see `Python Stub file <src/_di.pyi>`_ or `test files <tests>`_
+For more info see `Python Stub file <https://github.com/zozzz/yapic.di/blob/master/src/_di.pyi>`_ or `test files <https://github.com/zozzz/yapic.di/tree/master/tests>`_
 
 
 Release Process
