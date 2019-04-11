@@ -41,7 +41,7 @@ using Yapic::PyPtr;
 
 class ValueResolver;
 
-class Injector: public Yapic::Type<Injector, Yapic::Object> {
+class Injector: public Yapic::Type<Injector, Yapic::GcObject> {
 public:
 	PyObject* injectables;
 	PyObject* singletons;
@@ -58,7 +58,8 @@ public:
 	static Injector* Clone(Injector* injector, Injector* parent);
 
 	static PyObject* __new__(PyTypeObject *type, PyObject *args, PyObject *kwargs);
-	static void __dealloc__(Injector* self);
+	static int __traverse__(Injector* self, visitproc visit, void *arg);
+	static int __clear__(Injector* self);
 	static PyObject* __mp_getitem__(Injector* self, PyObject* key);
 	static int __mp_setitem__(Injector* self, PyObject* key, PyObject* value);
 	static PyObject* provide(Injector* self, PyObject* args, PyObject* kwargs);
@@ -126,7 +127,8 @@ public:
 	static Py_hash_t __hash__(Injectable* self);
 	static PyObject* __cmp__(Injectable* self, PyObject* other, int op);
 	static PyObject* __repr__(Injectable* self);
-	static void __dealloc__(Injectable* self);
+	static int __traverse__(Injectable* self, visitproc visit, void *arg);
+	static int __clear__(Injectable* self);
 	// visszaad egy bounded injectable objektumot, aminek már nem kell megadni
 	// az injector objektumot, akkor ha meghívjuk
 	static PyObject* bind(Injectable* self, Injector* injector);
@@ -171,7 +173,8 @@ public:
 	static void SetId(ValueResolver* self, PyObject* id);
 	static void SetName(ValueResolver* self, PyObject* name);
 	static void SetDefaultValue(ValueResolver* self, PyObject* value);
-	static void __dealloc__(ValueResolver* self);
+	static int __traverse__(ValueResolver* self, visitproc visit, void *arg);
+	static int __clear__(ValueResolver* self);
 	static PyObject* __repr__(ValueResolver* self);
 };
 

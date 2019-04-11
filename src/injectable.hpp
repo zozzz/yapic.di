@@ -896,14 +896,26 @@ PyObject* Injectable::__repr__(Injectable* self) {
 }
 
 
-void Injectable::__dealloc__(Injectable* self) {
+int Injectable::__traverse__(Injectable* self, visitproc visit, void *arg) {
+	Py_VISIT(self->value);
+	Py_VISIT(self->args);
+	Py_VISIT(self->kwargs);
+	Py_VISIT(self->attributes);
+	Py_VISIT(self->own_injector);
+	Py_VISIT(self->resolved);
+	return 0;
+}
+
+
+int Injectable::__clear__(Injectable* self) {
+	PyObject_GC_UnTrack(self);
 	Py_CLEAR(self->value);
 	Py_CLEAR(self->args);
 	Py_CLEAR(self->kwargs);
 	Py_CLEAR(self->attributes);
 	Py_CLEAR(self->own_injector);
 	Py_CLEAR(self->resolved);
-	Super::__dealloc__(self);
+	return 0;
 }
 
 
@@ -940,7 +952,6 @@ PyObject* BoundInjectable::__call__(BoundInjectable* self, PyObject* args, PyObj
 void BoundInjectable::__dealloc__(BoundInjectable* self) {
 	Py_XDECREF(self->injectable);
 	Py_XDECREF(self->injector);
-	Super::__dealloc__(self);
 }
 
 

@@ -155,13 +155,24 @@ PyObject* Injector::__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs
 }
 
 
-void Injector::__dealloc__(Injector* self) {
-	Py_XDECREF(self->injectables);
-	Py_XDECREF(self->singletons);
-	Py_XDECREF(self->kwargs);
-	Py_XDECREF(self->parent);
-	Super::__dealloc__(self);
+int Injector::__traverse__(Injector* self, visitproc visit, void *arg) {
+	Py_VISIT(self->injectables);
+	Py_VISIT(self->singletons);
+	Py_VISIT(self->kwargs);
+	Py_VISIT(self->parent);
+	return 0;
 }
+
+
+int Injector::__clear__(Injector* self) {
+	PyObject_GC_UnTrack(self);
+	Py_CLEAR(self->injectables);
+	Py_CLEAR(self->singletons);
+	Py_CLEAR(self->kwargs);
+	Py_CLEAR(self->parent);
+	return 0;
+}
+
 
 PyObject* Injector::provide(Injector* self, PyObject* args, PyObject* kwargs) {
 	static char *kwlist[] = {"", "value", "strategy", "provide", NULL};

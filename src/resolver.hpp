@@ -188,11 +188,22 @@ void ValueResolver::SetDefaultValue(ValueResolver* self, PyObject* value) {
 }
 
 
-void ValueResolver::__dealloc__(ValueResolver* self) {
+int ValueResolver::__traverse__(ValueResolver* self, visitproc visit, void *arg) {
+	Py_VISIT(self->name);
+	Py_VISIT(self->id);
+	Py_VISIT(self->default_value);
+	Py_VISIT(self->injectable);
+	return 0;
+}
+
+
+int ValueResolver::__clear__(ValueResolver* self) {
+	PyObject_GC_UnTrack(self);
 	Py_CLEAR(self->name);
 	Py_CLEAR(self->id);
 	Py_CLEAR(self->default_value);
-	Super::__dealloc__(self);
+	Py_CLEAR(self->injectable);
+	return 0;
 }
 
 
