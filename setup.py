@@ -147,6 +147,7 @@ setup(
     url="https://github.com/zozzz/yapic.di",
     author="Zoltán Vetési",
     author_email="vetesi.zoltan@gmail.com",
+    description="Very fast Dependency Injection library",
     long_description=(Path(__file__).parent / "README.rst").read_text(encoding="utf-8"),
     license="BSD",
     packages=["yapic.di"],

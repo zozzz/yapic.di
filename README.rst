@@ -18,8 +18,9 @@ Dependency Injector
       :target: https://pypi.org/project/yapic.di/
 
 
-Fast `Dependency Injection <https://en.wikipedia.org/wiki/Dependency_injection>`_
-for Python, which is highly uses typing features.
+Very fast `Dependency Injection <https://en.wikipedia.org/wiki/Dependency_injection>`_
+for Python, which is highly uses typing features. Sometimes faster
+then similar call in Python.
 
 Requirements
 ------------
@@ -62,7 +63,7 @@ Usage
    class DieselCar(Car[Diesel]):
       pass
 
-   ELECTRONIC_CAR = "ELECTRONIC_CAR"  # this is not the best idea, but can work
+   ELECTRONIC_CAR = Token("ELECTRONIC_CAR")
 
    injector = Injector()
    injector.provide(Gasoline)
@@ -84,6 +85,16 @@ Usage
       assert isinstance(car.engine, Diesel)
 
    injector.exec(drive_diesel)
+
+   # you can set constant values, like a dict
+   MEANING_OF_LIFE = Token("MEANING_OF_LIFE")
+   injector[MEANING_OF_LIFE] = 42
+   assert injector[MEANING_OF_LIFE] == 42
+
+   def question(q: MEANING_OF_LIFE):
+      assert q == 42
+
+   injector.exec(question)
 
 
 Keyword Only Arguments
