@@ -1,5 +1,5 @@
 import pytest
-from yapic.di import Injector, VALUE, KwOnly, NoKwOnly
+from yapic.di import Injector, VALUE, KwOnly, NoKwOnly, Inject, Injectable
 
 
 def test_injector_descend():
@@ -86,3 +86,26 @@ def test_injector_clone():
     injectable = injector.provide(fn, provide=[KwOnly(get_kw)])
     assert injectable(injector) == "OK"
     assert injector[fn] == "OK"
+
+
+def test_attr():
+    class Request:
+        injector: Inject[Injector]
+
+        def verify(self):
+            assert self.injector[Request] is self
+
+    injector = Injector()
+    injector.provide(Request)
+
+    req_injector = injector.descend()
+    req_injector[Request] = req_injector[Request]
+
+    assert req_injector[Request] is req_injector[Request]
+
+    def handle(req: Request):
+        assert isinstance(req, Request)
+        req.verify()
+
+    handler = Injectable(handle)
+    handler(req_injector)
