@@ -96,6 +96,12 @@ Usage
 
    injector.exec(question)
 
+   # cached injectable
+   life_q = Injectable(question)
+
+   # this is same as with injector.exec(question), but injectable is precached
+   life_q(injector)
+
 
 Keyword Only Arguments
 ----------------------
