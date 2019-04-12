@@ -1,5 +1,5 @@
 import pytest
-from yapic.di import Injector, VALUE
+from yapic.di import Injector, VALUE, KwOnly, NoKwOnly
 
 
 def test_injector_descend():
@@ -23,39 +23,66 @@ def test_custom_provide():
         return "OK"
 
     injector.provide(A)
-    injector.provide(fn, provide=[
-        (A, X)
-    ])
+    injector.provide(fn, provide=[(A, X)])
 
     assert injector.get(fn) == "OK"
 
 
+def test_injector_descend2():
+    class A:
+        pass
 
-# def test_scope_inheritance():
-#     s1 = Scope()
-#     s1["level1"] = 1
-#     s1["top"] = "top"
+    def fn(i: Injector, a: A):
+        assert isinstance(a, A)
+        assert a is ainst
+        assert injector[A] is not a
+        return i.exec(fn2)
 
-#     s2 = s1.new_scope()
-#     s2["level2"] = 2
+    def fn2(i: Injector, a: A):
+        assert isinstance(a, A)
+        assert a is ainst
+        assert i[A] is a
+        return "OK"
 
-#     s3 = s2.new_scope()
-#     s3["level3"] = 3
+    injector = Injector()
+    injector.provide(A)
 
-#     assert s1["top"] == "top"
-#     assert s2["top"] == "top"
-#     assert s3["top"] == "top"
+    iclone = injector.descend()
+    ainst = iclone[A] = iclone[A]
 
-#     assert s2["level2"] == 2
-#     assert s3["level2"] == 2
+    assert iclone.exec(fn) == "OK"
 
-#     assert s3["level3"] == 3
+    iclone2 = iclone.descend()
+    assert iclone2.exec(fn) == "OK"
 
-#     with pytest.raises(KeyError):
-#         x = s1["level2"]
 
-#     with pytest.raises(KeyError):
-#         x = s1["level3"]
+def test_injector_clone():
+    class A:
+        pass
 
-#     with pytest.raises(KeyError):
-#         x = s2["level3"]
+    def fn(i: Injector, kwarg: A):
+        assert isinstance(kwarg, A)
+        assert kwarg is ainst
+        assert i[A] is kwarg
+        assert i is not injector
+        i[A] = "another"
+        return injector.exec(fn2)
+
+    def fn2(i: Injector):
+        assert i[A] is ainst
+        return "OK"
+
+    injector = Injector()
+    injector.provide(A)
+
+    ainst = injector[A] = injector[A]
+
+    def get_kw(a: A, *, name: str, type: type):
+        if name == "kwarg":
+            return a
+        else:
+            raise NoKwOnly()
+
+    injectable = injector.provide(fn, provide=[KwOnly(get_kw)])
+    assert injectable(injector) == "OK"
+    assert injector[fn] == "OK"

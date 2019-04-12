@@ -42,13 +42,20 @@ Injector* Injector::Clone(Injector* self, Injector* parent) {
 	if (result == NULL) {
 		return NULL;
 	}
-	result->injectables = self->injectables;
-	result->singletons = self->singletons;
-	result->kwargs = self->kwargs;
+
+	if ((result->injectables = PyDict_Copy(self->injectables)) == NULL) {
+		return NULL;
+	}
+
+	if ((result->singletons = PyDict_Copy(self->singletons)) == NULL) {
+		return NULL;
+	}
+
+	if (self->kwargs != NULL && (result->kwargs = PySequence_List(self->kwargs)) == NULL) {
+		return NULL;
+	}
+
 	result->parent = parent;
-	Py_XINCREF(result->injectables);
-	Py_XINCREF(result->singletons);
-	Py_XINCREF(result->kwargs);
 	Py_XINCREF(parent);
 
 	return result;
