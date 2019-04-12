@@ -89,6 +89,6 @@ def test_injectable_cached():
     def test_fn():
         return "NICE"
 
-    injectable = injector.injectable(test_fn)
+    injectable = Injectable(test_fn)
     assert isinstance(injectable, Injectable)
     assert injectable(injector) == "NICE"

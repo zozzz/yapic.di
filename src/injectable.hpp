@@ -665,6 +665,21 @@ PyObject* Injectable::Resolve(Injectable* self, Injector* injector, int recursio
 }
 
 
+PyObject* Injectable::__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
+	static char *kwlist[] = {"value", "strategy", "provide", NULL};
+
+	PyObject* value = NULL;
+	PyObject* strategy = NULL;
+	PyObject* provide = NULL;
+
+	if (PyArg_ParseTupleAndKeywords(args, kwargs, "O|OO:Injectable", kwlist, &value, &strategy, &provide)) {
+		return (PyObject*)Injectable::New(value, strategy, provide);
+	} else {
+		return NULL;
+	}
+}
+
+
 PyObject* Injectable::__call__(Injectable* self, PyObject* args, PyObject** kwargs) {
 	assert(args != NULL);
 	if (PyTuple_CheckExact(args) && PyTuple_GET_SIZE(args) == 1) {

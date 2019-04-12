@@ -65,14 +65,14 @@ public:
 	static PyObject* provide(Injector* self, PyObject* args, PyObject* kwargs);
 	static PyObject* get(Injector* self, PyObject* id);
 	static PyObject* exec(Injector* self, PyObject* args, PyObject* kwargs);
-	static PyObject* injectable(Injector* self, PyObject* args, PyObject* kwargs);
+	// static PyObject* injectable(Injector* self, PyObject* args, PyObject* kwargs);
 	static PyObject* descend(Injector* self);
 
 	Yapic_METHODS_BEGIN
 		Yapic_Method(provide, METH_VARARGS | METH_KEYWORDS, "")
 		Yapic_Method(get, METH_O, "")
 		Yapic_Method(exec, METH_VARARGS | METH_KEYWORDS, "")
-		Yapic_Method(injectable, METH_VARARGS | METH_KEYWORDS, "")
+		// Yapic_Method(injectable, METH_VARARGS | METH_KEYWORDS, "")
 		Yapic_Method(descend, METH_NOARGS, "")
 	Yapic_METHODS_END
 };
@@ -113,8 +113,6 @@ public:
 	StrategyCallback strategy;
 	StrategyCallback get_value;
 
-	Yapic_PrivateNew;
-
 	static Injectable* New(PyObject* value, Strategy strategy, PyObject* provide);
 	static Injectable* New(PyObject* value, PyObject* strategy, PyObject* provide);
 	static inline PyObject* Resolve(Injectable* self, Injector* injector, int recursion);
@@ -123,6 +121,7 @@ public:
 	static ValueResolver* GetKwArg(Injectable* self, PyObject* name);
 	// static PyObject* Exec(Injectable* self, Injector* injector);
 	// egy injectort vár paraméternek, és így vissza tudja adni azt, amit kell
+	static PyObject* __new__(PyTypeObject *type, PyObject *args, PyObject *kwargs);
 	static PyObject* __call__(Injectable* self, PyObject* args, PyObject** kwargs);
 	static Py_hash_t __hash__(Injectable* self);
 	static PyObject* __cmp__(Injectable* self, PyObject* other, int op);
