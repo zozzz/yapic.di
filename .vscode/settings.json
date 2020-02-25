@@ -11,13 +11,13 @@
 		"cstddef": "cpp",
 		"xlocale": "cpp"
 	},
-	"python.unitTest.pyTestArgs": [
+	"python.testing.pytestArgs": [
 		"-x",
 		"-s",
 		"tests"
 	],
-	"python.unitTest.unittestEnabled": false,
-	"python.unitTest.nosetestsEnabled": false,
-	"python.unitTest.pyTestEnabled": true,
+	"python.testing.unittestEnabled": false,
+	"python.testing.nosetestsEnabled": false,
+	"python.testing.pytestEnabled": true,
 	"restructuredtext.confPath": "${workspaceFolder}\\docs"
 }
