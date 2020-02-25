@@ -5,8 +5,14 @@ environment:
     - platform: x86
       python: Python37
 
+    - platform: x86
+      python: Python38
+
     - platform: x64
       python: Python37-x64
+
+    - platform: x64
+      python: Python38-x64
 
 install:
   - cmd: set PATH=C:\%python%;%PATH%

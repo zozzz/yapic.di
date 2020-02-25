@@ -9,7 +9,7 @@ from setuptools import setup, Extension
 from setuptools.command.test import test as TestCommand
 from setuptools import Command
 
-VERSION = "2.0.0"
+VERSION = "2.0.1"
 
 define_macros = {
     "YAPIC_DI_VERSION_MAJOR": VERSION.split(".")[0],
