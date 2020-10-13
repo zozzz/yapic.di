@@ -136,11 +136,11 @@ PyObject* Injector::Provide(Injector* self, PyObject* id, PyObject* value, PyObj
 }
 
 void Injector::SetParent(Injector* self, Injector* parent) {
-	if (self->parent != NULL) {
-		Py_DECREF(self->parent);
-	}
 	if (parent != NULL) {
 		Py_INCREF(parent);
+	}
+	if (self->parent != NULL) {
+		Py_DECREF(self->parent);
 	}
 	self->parent = parent;
 }
@@ -178,6 +178,15 @@ int Injector::__clear__(Injector* self) {
 	Py_CLEAR(self->kwargs);
 	Py_CLEAR(self->parent);
 	return 0;
+}
+
+
+void Injector::__dealloc__(Injector* self) {
+	Py_CLEAR(self->injectables);
+	Py_CLEAR(self->singletons);
+	Py_CLEAR(self->kwargs);
+	Py_CLEAR(self->parent);
+	Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 

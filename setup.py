@@ -63,7 +63,8 @@ cpp_ext = Extension(
     extra_compile_args=extra_compile_args,
     define_macros=list(define_macros.items()),
     undef_macros=undef_macros,
-    language="c++")
+    language="c++",
+)
 
 
 def cmd_prerun(cmd, requirements):
@@ -154,7 +155,7 @@ setup(
     package_dir={"yapic.di": "src"},
     package_data={"yapic.di": ["_di.pyi"]},
     ext_modules=[cpp_ext],
-    tests_require=["pytest"],
+    tests_require=["pytest", "pytest-leaks"],
     python_requires=">=3.7",
     extras_require={"benchmark": ["pytest", "pytest-benchmark"]},
     cmdclass={
@@ -172,4 +173,5 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Utilities",
         "Typing :: Typed",
-    ])
+    ],
+)

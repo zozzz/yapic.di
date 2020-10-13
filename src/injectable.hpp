@@ -934,6 +934,17 @@ int Injectable::__clear__(Injectable* self) {
 }
 
 
+void Injectable::__dealloc__(Injectable* self) {
+	Py_CLEAR(self->value);
+	Py_CLEAR(self->args);
+	Py_CLEAR(self->kwargs);
+	Py_CLEAR(self->attributes);
+	Py_CLEAR(self->own_injector);
+	Py_CLEAR(self->resolved);
+	Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+
 BoundInjectable* BoundInjectable::New(Injectable* injectable, Injector* injector, Py_hash_t hash) {
 	assert(Injectable::CheckExact(injectable));
 	assert(Injector::CheckExact(injector));

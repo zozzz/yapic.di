@@ -60,6 +60,7 @@ public:
 	static PyObject* __new__(PyTypeObject *type, PyObject *args, PyObject *kwargs);
 	static int __traverse__(Injector* self, visitproc visit, void *arg);
 	static int __clear__(Injector* self);
+	static void __dealloc__(Injector* self);
 	static PyObject* __mp_getitem__(Injector* self, PyObject* key);
 	static int __mp_setitem__(Injector* self, PyObject* key, PyObject* value);
 	static PyObject* provide(Injector* self, PyObject* args, PyObject* kwargs);
@@ -78,7 +79,7 @@ public:
 };
 
 
-class Injectable: public Yapic::Type<Injectable, Yapic::Object> {
+class Injectable: public Yapic::Type<Injectable, Yapic::GcObject> {
 public:
 	typedef PyObject* (*StrategyCallback)(Injectable* self, Injector* injector, Injector* owni, int recursion);
 	using UnicodeBuilder = Yapic::UnicodeBuilder<1024>;
@@ -128,6 +129,7 @@ public:
 	static PyObject* __repr__(Injectable* self);
 	static int __traverse__(Injectable* self, visitproc visit, void *arg);
 	static int __clear__(Injectable* self);
+	static void __dealloc__(Injectable* self);
 	// visszaad egy bounded injectable objektumot, aminek már nem kell megadni
 	// az injector objektumot, akkor ha meghívjuk
 	static PyObject* bind(Injectable* self, Injector* injector);
@@ -174,6 +176,7 @@ public:
 	static void SetDefaultValue(ValueResolver* self, PyObject* value);
 	static int __traverse__(ValueResolver* self, visitproc visit, void *arg);
 	static int __clear__(ValueResolver* self);
+	static void __dealloc__(ValueResolver* self);
 	static PyObject* __repr__(ValueResolver* self);
 };
 

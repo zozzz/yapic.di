@@ -207,6 +207,15 @@ int ValueResolver::__clear__(ValueResolver* self) {
 }
 
 
+void ValueResolver::__dealloc__(ValueResolver* self) {
+	Py_CLEAR(self->name);
+	Py_CLEAR(self->id);
+	Py_CLEAR(self->default_value);
+	Py_CLEAR(self->injectable);
+	Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+
 PyObject* ValueResolver::__repr__(ValueResolver* self) {
 	Yapic::UnicodeBuilder<256> builder;
 	if (!builder.AppendStringSafe("<ValueResolver")) {
