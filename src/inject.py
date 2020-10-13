@@ -23,13 +23,12 @@ class Inject(Generic[Inj]):
         a_inst = injector.get(A)
         assert(isinstance(a_inst.db, Database))
     """
-
     @overload
     def __get__(self, instance: None, owner: type) -> NoReturn:
         pass
 
-    @overload  # noqa
-    def __get__(self, instance: Inst, owner: type) -> Inj:
+    @overload
+    def __get__(self, instance: Inst, owner: type) -> Inj:  # noqa
         pass
 
     def __get__(self, instance, owner):  # noqa

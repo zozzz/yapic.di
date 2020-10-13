@@ -90,6 +90,7 @@ void KwOnly::__dealloc__(KwOnly* self) {
 	Py_CLEAR(self->getter);
 	Py_CLEAR(self->name_resolver);
 	Py_CLEAR(self->type_resolver);
+	Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 

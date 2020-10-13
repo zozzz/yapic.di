@@ -240,11 +240,12 @@ PyObject* Injector::exec(Injector* self, PyObject* args, PyObject* kwargs) {
 	PyObject* provide = NULL;
 
 	if (PyArg_ParseTupleAndKeywords(args, kwargs, "O|O:exec", kwlist, &callable, &provide)) {
-		Injectable* injectable = Injectable::New(callable, Injectable::Strategy::FACTORY, provide);
-		if (injectable == NULL) {
+		PyPtr<Injectable> injectable = Injectable::New(callable, Injectable::Strategy::FACTORY, provide);
+		if (injectable.IsValid()) {
+			return Injectable::Resolve(injectable, self, 0);
+		} else {
 			return NULL;
 		}
-		return Injectable::Resolve(injectable, self, 0);
 	}
 
 	return NULL;

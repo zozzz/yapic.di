@@ -1,4 +1,5 @@
 import xxx
+from xxx import GenericClass
 from yapic.di import Injector, Inject
 
 
@@ -65,14 +66,14 @@ def test_forwardref_class_global():
 
 def test_forwardref_class2():
     class Z:
-        z: Inject[xxx.GenericClass["X"]]
+        z: Inject[GenericClass["X"]]
 
     injector = Injector()
-    injector.provide(X)
-    injector.provide(xxx.GenericClass)
     injector.provide(Z)
+    injector.provide(GenericClass)
+    injector.provide(X)
 
     assert isinstance(injector.get(Z), Z)
-    assert isinstance(injector.get(Z).z, xxx.GenericClass)
+    assert isinstance(injector.get(Z).z, GenericClass)
     assert isinstance(injector.get(Z).z.attr, X)
     assert isinstance(injector.get(Z).z.x_init, X)

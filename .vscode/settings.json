@@ -9,7 +9,9 @@
 		"Pipfile": "ini",
 		"istream": "cpp",
 		"cstddef": "cpp",
-		"xlocale": "cpp"
+		"xlocale": "cpp",
+		"system_error": "cpp",
+		"xtr1common": "cpp"
 	},
 	"python.testing.pytestArgs": [
 		"-x",

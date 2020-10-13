@@ -550,7 +550,6 @@ Injectable* Injectable::New(PyObject* value, Injectable::Strategy strategy, PyOb
 				return NULL;
 			}
 
-			// TODO: better solution...
 			value = PyTuple_GET_ITEM(hints, 0);
 			Py_INCREF(value);
 			Py_DECREF(self->value);
@@ -978,6 +977,7 @@ PyObject* BoundInjectable::__call__(BoundInjectable* self, PyObject* args, PyObj
 void BoundInjectable::__dealloc__(BoundInjectable* self) {
 	Py_XDECREF(self->injectable);
 	Py_XDECREF(self->injector);
+	Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 
