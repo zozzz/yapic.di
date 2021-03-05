@@ -396,3 +396,21 @@ def test_token_attr():
     b = injector[B]
     assert isinstance(b, B)
     assert isinstance(b.a, A)
+
+
+def test_class_with_type_annot():
+    class B:
+        pass
+
+    class A:
+        something: "Something"
+        b: Inject[B]
+
+    injector = Injector()
+    injector.provide(A)
+    injector.provide(B)
+
+    a = injector[A]
+    assert isinstance(a, A)
+    assert isinstance(a.b, B)
+    assert not hasattr(a, "something")

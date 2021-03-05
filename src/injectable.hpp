@@ -38,7 +38,8 @@ namespace _injectable {
 		}
 
 		static inline PyObject* GetInjectableAttr(PyObject* inject) {
-			if (Module::State()->Typing.IsForwardDecl(inject)) {
+			// Csak az ilyen formájó ForwardDecl osztályok érdekelnek: Inject["..."]
+			if (Module::State()->Typing.IsForwardDecl(inject) && reinterpret_cast<Yapic::ForwardDecl*>(inject)->IsGeneric()) {
 				// Yapic::ForwardDecl* forward = reinterpret_cast<Yapic::ForwardDecl*>(inject);
 				PyPtr<PyTupleObject> unpacked = Module::State()->Typing.UnpackForwardDecl(inject);
 				if (unpacked) {
