@@ -1,35 +1,32 @@
-version: 2
+version: 2.1
 
-_vars:
-  - &docker-x86-py37
+executors:
+  x86:
+    parameters:
+      pyver:
+        description: "Python version like: cp37-cp37m, to get available version, run: docker run --rm quay.io/pypa/manylinux1_i686 ls -la /opt/python"
+        type: string
     docker:
       - image: quay.io/pypa/manylinux1_i686
-        environment:
-          PYBIN: /opt/python/cp37-cp37m/bin/python3
-    working_directory: ~/repo
+    environment:
+      PYBIN: linux32 /opt/python/<< parameters.pyver >>/bin/python3
 
-  - &docker-x86-py38
-    docker:
-      - image: quay.io/pypa/manylinux1_i686
-        environment:
-          PYBIN: /opt/python/cp38-cp38/bin/python3
-    working_directory: ~/repo
-
-  - &docker-x64-py37
+  x64:
+    parameters:
+      pyver:
+        description: "Python version like: cp37-cp37m, to get available version, run: docker run --rm quay.io/pypa/manylinux1_x86_64 ls -la /opt/python"
+        type: string
     docker:
       - image: quay.io/pypa/manylinux1_x86_64
-        environment:
-          PYBIN: /opt/python/cp37-cp37m/bin/python3
-    working_directory: ~/repo
+    environment:
+      PYBIN: /opt/python/<< parameters.pyver >>/bin/python3
 
-  - &docker-x64-py38
-    docker:
-      - image: quay.io/pypa/manylinux1_x86_64
-        environment:
-          PYBIN: /opt/python/cp38-cp38/bin/python3
-    working_directory: ~/repo
-
-  - &job-prepare
+jobs:
+  prepare:
+    parameters:
+      exec:
+        type: executor
+    executor: << parameters.exec >>
     steps:
       - checkout
 
@@ -42,26 +39,31 @@ _vars:
       - run:
           name: install dependencies
           command: |
-            "${PYBIN}" -m pip install --upgrade pip setuptools pytest auditwheel
+            ${PYBIN} -m pip install --upgrade pip setuptools pytest auditwheel
 
       - run:
           name: build
           command: |
-            "${PYBIN}" setup.py bdist_wheel
-            "${PYBIN}" -m auditwheel repair dist/*.whl
+            ${PYBIN} setup.py bdist_wheel
+            ${PYBIN} -m auditwheel repair dist/*.whl
 
       - run:
           name: test
           command: |
-            rm -rf pytest.py
-            "${PYBIN}" -m pip install --upgrade wheelhouse/*.whl
-            "${PYBIN}" -m pytest -x -s -v tests
+            ${PYBIN} -m pip install --upgrade wheelhouse/*.whl
+            ${PYBIN} -m pytest -x -s tests
 
       - persist_to_workspace:
           root: wheelhouse
           paths: "*.whl"
 
-  - &job-release
+  release:
+    # parameters:
+    #   exec:
+    #     type: executor
+    # executor: << parameters.exec >>
+    docker:
+      - image: python:slim
     steps:
       - attach_workspace:
           at: wheelhouse
@@ -69,80 +71,79 @@ _vars:
       - run:
           name: install dependencies
           command: |
-            "${PYBIN}" -m pip install --upgrade twine
+            python3 -m pip install --upgrade twine
 
       - run:
           name: release
           command: |
-            "${PYBIN}" -m twine upload --skip-existing wheelhouse/*.whl
+            python3 -m twine upload --skip-existing wheelhouse/*.whl
 
-  - &release-filters
+_vars:
+  - &release-filter
     branches: { only: release }
     tags: { only: /^\d+\.\d+\.\d+$/ }
 
-jobs:
-  x86-py37-prepare:
-    <<: *docker-x86-py37
-    <<: *job-prepare
-
-  x86-py37-release:
-    <<: *docker-x86-py37
-    <<: *job-release
-
-  x86-py38-prepare:
-    <<: *docker-x86-py38
-    <<: *job-prepare
-
-  x86-py38-release:
-    <<: *docker-x86-py38
-    <<: *job-release
-
-  x64-py37-prepare:
-    <<: *docker-x64-py37
-    <<: *job-prepare
-
-  x64-py37-release:
-    <<: *docker-x64-py37
-    <<: *job-release
-
-  x64-py38-prepare:
-    <<: *docker-x64-py38
-    <<: *job-prepare
-
-  x64-py38-release:
-    <<: *docker-x64-py38
-    <<: *job-release
-
 workflows:
-  version: 2
+  x86-py36:
+    jobs:
+      - prepare:
+          exec: { name: x86, pyver: cp36-cp36m }
+      - release:
+          requires: [prepare]
+          filters: *release-filter
+
   x86-py37:
     jobs:
-      - x86-py37-prepare
-      - x86-py37-release:
-          filters: *release-filters
-          requires:
-            - x86-py37-prepare
+      - prepare:
+          exec: { name: x86, pyver: cp37-cp37m }
+      - release:
+          requires: [prepare]
+          filters: *release-filter
 
   x86-py38:
     jobs:
-      - x86-py38-prepare
-      - x86-py38-release:
-          filters: *release-filters
-          requires:
-            - x86-py38-prepare
+      - prepare:
+          exec: { name: x86, pyver: cp38-cp38 }
+      - release:
+          requires: [prepare]
+          filters: *release-filter
+
+  x86-py39:
+    jobs:
+      - prepare:
+          exec: { name: x86, pyver: cp39-cp39 }
+      - release:
+          requires: [prepare]
+          filters: *release-filter
+
+  x64-py36:
+    jobs:
+      - prepare:
+          exec: { name: x64, pyver: cp36-cp36m }
+      - release:
+          requires: [prepare]
+          filters: *release-filter
 
   x64-py37:
     jobs:
-      - x64-py37-prepare
-      - x64-py37-release:
-          filters: *release-filters
-          requires:
-            - x64-py37-prepare
+      - prepare:
+          exec: { name: x64, pyver: cp37-cp37m }
+      - release:
+          requires: [prepare]
+          filters: *release-filter
 
   x64-py38:
     jobs:
-      - x64-py38-prepare
-      - x64-py38-release:
-          filters: *release-filters
-          requires:
-            - x64-py38-prepare
+      - prepare:
+          exec: { name: x64, pyver: cp38-cp38 }
+      - release:
+          requires: [prepare]
+          filters: *release-filter
+
+  x64-py39:
+    jobs:
+      - prepare:
+          exec: { name: x64, pyver: cp39-cp39 }
+      - release:
+          requires: [prepare]
+          filters: *release-filter
