@@ -84,14 +84,6 @@ _vars:
     tags: { only: /^\d+\.\d+\.\d+$/ }
 
 workflows:
-  x86-py36:
-    jobs:
-      - prepare:
-          exec: { name: x86, pyver: cp36-cp36m }
-      - release:
-          requires: [prepare]
-          filters: *release-filter
-
   x86-py37:
     jobs:
       - prepare:
@@ -112,14 +104,6 @@ workflows:
     jobs:
       - prepare:
           exec: { name: x86, pyver: cp39-cp39 }
-      - release:
-          requires: [prepare]
-          filters: *release-filter
-
-  x64-py36:
-    jobs:
-      - prepare:
-          exec: { name: x64, pyver: cp36-cp36m }
       - release:
           requires: [prepare]
           filters: *release-filter
