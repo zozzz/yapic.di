@@ -1,6 +1,6 @@
-import sys
 import os
 import re
+import sys
 
 
 def exec(cmd):
@@ -11,7 +11,7 @@ def exec(cmd):
 if __name__ == "__main__":
     version = sys.argv[1]
 
-    exec('git checkout master')
+    exec("git checkout master")
 
     with open("setup.py", "r+") as f:
         content = f.read()
@@ -21,11 +21,11 @@ if __name__ == "__main__":
         f.truncate(0)
         f.write(content)
 
-    exec('git add setup.py')
+    exec("git add setup.py")
     exec(f'git commit -m "chore(bump): {version}"')
-    exec('git checkout release')
-    exec('git merge master')
+    exec("git checkout release")
+    exec("git merge master")
     exec(f'git tag -a {version} -m "chore(bump): {version}"')
-    exec('git push && git push --tags')
-    exec('git checkout master')
-    exec('git merge release')
+    exec("git push && git push --tags")
+    exec("git checkout master")
+    exec("git merge release")

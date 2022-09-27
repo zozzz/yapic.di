@@ -28,7 +28,7 @@ jobs:
       - name: install deps
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install pytest
+          python3 -m pip install pytest wheel
 
       - name: run tests
         run: python3 setup.py test -- tests -q -x
