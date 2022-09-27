@@ -28,7 +28,7 @@ jobs:
           python3 -m pip install pytest wheel
 
       - name: run tests
-        run: python3 setup.py test -f tests -a "-q -x"
+        run: python3 setup.py test -- tests -q -x
 
   release:
     runs-on: ubuntu-latest
