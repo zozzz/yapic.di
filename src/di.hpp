@@ -11,7 +11,7 @@
 	YapicDI_STR(YAPIC_DI_VERSION_PATCH)
 
 // USE ONLY FOR DEBUGGING
-#define YapicDI_REPR(o) (((PyObject*)o) == NULL ? "<NULL>" : ((char*) PyUnicode_DATA(PyObject_Repr(((PyObject*)o)))))
+#define YapicDI_REPR(o) (((PyObject*)o) == NULL ? "<NULL>" : ((char*) PyUnicode_DATA(PyObject_ASCII(((PyObject*)o)))))
 #define YapicDI_DUMP(o) printf(#o " = %s\n", YapicDI_REPR(o))
 
 #define YapicDI_MAX_RECURSION 1000

@@ -82,7 +82,6 @@ namespace _injectable {
 				return NULL;
 			}
 
-
 			PyObject* entry;
 			PyObject* argName;
 			PyObject* argType;

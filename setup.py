@@ -1,28 +1,25 @@
-#!/usr/bin/env python3
-
-import os
 import sys
 from glob import glob
 from os import path
 from pathlib import Path
-from setuptools import setup, Extension
+
+from setuptools import Command, Extension, setup
 from setuptools.command.test import test as TestCommand
-from setuptools import Command
 
 VERSION = "2.0.5"
 
 define_macros = {
     "YAPIC_DI_VERSION_MAJOR": VERSION.split(".")[0],
     "YAPIC_DI_VERSION_MINOR": VERSION.split(".")[1],
-    "YAPIC_DI_VERSION_PATCH": VERSION.split(".")[2]
+    "YAPIC_DI_VERSION_PATCH": VERSION.split(".")[2],
 }
 undef_macros = []
 extra_compile_args = []  # -flto
 
 subcommand_args = []
 if "--" in sys.argv:
-    subcommand_args = sys.argv[sys.argv.index("--") + 1:]
-    del sys.argv[sys.argv.index("--"):]
+    subcommand_args = sys.argv[sys.argv.index("--") + 1 :]  # noqa
+    del sys.argv[sys.argv.index("--") :]  # noqa
 
 if sys.platform == "win32":
     define_macros["UNICODE"] = "1"
@@ -113,6 +110,7 @@ class PyTest(TestCommand):
 
     def run_tests(self):
         import pytest
+
         errno = pytest.main(subcommand_args)
         sys.exit(errno)
 
@@ -136,7 +134,9 @@ class Benchmark(Command):
 
         cmd_prerun(self, requirements)
         import shlex
+
         import pytest
+
         errno = pytest.main(shlex.split(self.pytest_args))
         sys.exit(errno)
 
@@ -158,10 +158,7 @@ setup(
     tests_require=["pytest", "pytest-leaks"],
     python_requires=">=3.7",
     extras_require={"benchmark": ["pytest", "pytest-benchmark"]},
-    cmdclass={
-        "test": PyTest,
-        "bench": Benchmark
-    },
+    cmdclass={"test": PyTest, "bench": Benchmark},
     classifiers=[
         "Development Status :: 4 - Beta",
         "License :: OSI Approved :: BSD License",
