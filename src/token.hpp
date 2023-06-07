@@ -37,10 +37,20 @@ namespace YapicDI { namespace Token {
             return NULL;
         }
 
-        PyPtr<> module = PyObject_GetItem(frame->f_globals, Module::State()->str_name);
-        if (!module) {
-            return NULL;
-        }
+        // version >= 3.11
+        #if PY_VERSION_HEX >= 0x030B0000
+            PyPtr<PyObject> globals(PyFrame_GetGlobals(frame));
+            if (globals.IsNull()) {
+                return NULL;
+            }
+
+            PyPtr<> module = PyObject_GetItem(globals, Module::State()->str_name);
+            if (!module) {
+                return NULL;
+            }
+        #else
+            PyPtr<> module = PyObject_GetItem(frame->f_globals, Module::State()->str_name);
+        #endif
 
         Yapic::Utf8BytesBuilder name;
 
