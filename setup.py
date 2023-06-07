@@ -6,7 +6,7 @@ from pathlib import Path
 from setuptools import Command, Extension, setup
 from setuptools.command.test import test as TestCommand
 
-VERSION = "2.0.10"
+VERSION = "2.0.11"
 
 define_macros = {
     "YAPIC_DI_VERSION_MAJOR": VERSION.split(".")[0],
